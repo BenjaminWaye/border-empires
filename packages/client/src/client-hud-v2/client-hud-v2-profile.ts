@@ -5,7 +5,7 @@
 // its own overlay stays hidden under the new HUD.
 
 import { profileCrestHtml, type ProfileCrestFields } from "./client-hud-v2-profile-crest.js";
-import type { LeaderboardOverallEntry } from "@border-empires/game-domain";
+import { leaderboardScoreParts, type LeaderboardOverallEntry } from "@border-empires/game-domain";
 import type { CareerStatsView, GalaxyHoldingsView, SocialPublicView, TruceBreakView } from "../client-player-profile/client-player-profile-types.js";
 import { sectorOrSeasonLabel, specializationLabel, trophyIconHtml } from "../client-player-profile/client-player-profile-galaxy.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
@@ -73,7 +73,8 @@ const shareHtml = (share: NonNullable<ProfileInput["share"]>): string => {
     ? `<button type="button" class="v2p-action" data-v2-profile-unshare${busy} title="Take your public House page down. The old link stops working">${share.pending === "stop" ? "Stopping…" : "Stop sharing"}</button>`
     : "";
   const note = share.note ? `<p class="v2p-share-note" role="status">${esc(share.note)}</p>` : "";
-  return `${start}${stop}${note}`;
+  const link = share.link ? `<a class="v2p-share-link" href="${esc(share.link)}" target="_blank" rel="noopener" data-v2-profile-share-link>${esc(share.link)}</a>` : "";
+  return `${start}${stop}${note}${link}`;
 };
 
 const heroHtml = (input: ProfileInput): string => {
@@ -109,6 +110,21 @@ const heroHtml = (input: ProfileInput): string => {
   </aside>`;
 };
 
+/**
+ * Score with its parts (game-domain leaderboard-score.ts). Playtest 2026-11-27: the score fell 25 -> 24
+ * after 19 captures. Captured frontier scores nothing until garrisoned, and the Empire Integrity it lowers
+ * scales the coin part, so the card says where the score comes from.
+ */
+const scoreCardHtml = (entry: LeaderboardOverallEntry | undefined): string => {
+  if (!entry) return `<div class="v2p-stat"><span>Score</span><b>—</b></div>`;
+  const parts = leaderboardScoreParts(entry.tiles, entry.incomePerMinute, entry.techs);
+  return `<div class="v2p-stat v2p-stat-score" data-v2-profile-score>
+    <span>Score</span><b>${int(entry.score)}</b>
+    <small class="v2p-score-parts">Tiles ${int(parts.tiles)} · Coin ${parts.coin.toFixed(1)} · Manifests ${int(parts.manifests)}</small>
+    <small class="v2p-score-parts">Frontier scores once garrisoned</small>
+  </div>`;
+};
+
 const statsHtml = (entry: LeaderboardOverallEntry | undefined, combat: ProfileCombat | undefined, ownNet: number | undefined): string => {
   const card = (label: string, value: string, title = ""): string => `<div class="v2p-stat"${title ? ` title="${title}"` : ""}><span>${label}</span><b>${value}</b></div>`;
   const v = (fn: (e: LeaderboardOverallEntry) => string): string => (entry ? fn(entry) : "—");
@@ -118,7 +134,7 @@ const statsHtml = (entry: LeaderboardOverallEntry | undefined, combat: ProfileCo
     ? card("Net coin / day", coinPerDay(ownNet).toFixed(1), NET_COIN_TITLE)
     : card("Gross coin / day", v((e) => coinPerDay(e.incomePerMinute).toFixed(1)), "Coin income per day before upkeep");
   return `<div class="v2p-stats${combat ? " v2p-stats-combat" : ""}">
-    ${card("Score", v((e) => int(e.score)))}
+    ${scoreCardHtml(entry)}
     ${card("Garrisoned tiles", v((e) => int(e.tiles)))}
     ${coin}
     ${card("Manifests", v((e) => int(e.techs)))}

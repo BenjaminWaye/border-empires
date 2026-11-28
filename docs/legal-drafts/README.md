@@ -2,30 +2,37 @@
 
 Status: active proposal
 Owner: Benjamin Waye, for TIDN AB
-Last verified: 2026-11-27
+Last verified: 2026-11-28
 Replaces: on publication, `packages/client/public/privacy.html` is replaced and `purchase-terms.html` is added beside it; this folder is then removed.
 
 These are drafts written by an agent from a template and from what the code
-does, then reviewed by a second agent on 2026-11-25. That review could not
-open the official pages; it relied on web search results that quote or
-summarise them, so every citation here is for the lawyer or accountant to
-confirm. **They are not legal or tax advice, have
-not been reviewed by a lawyer or an accountant, and are not ready to
-publish.** They are kept here, outside the deployed client, so nothing goes
-live before the owner has had them checked. They answer question Q12 of
+does, then reviewed by a second agent on 2026-11-25 and again on 2026-11-28
+with Anthropic's published legal skills
+([`ai-review-2026-11-28.md`](ai-review-2026-11-28.md)).
+
+**Owner decision, 2026-11-28:** no lawyer or accountant reviews these texts.
+The owner wrote: "We don't need reviews from lawyers or accountants use skills
+to do it". The AI review of 2026-11-28 takes their place. It answers both
+lists below, with a source and a confidence for each answer. Neither review
+could open the official pages; both relied on web search results that quote
+or summarise them. **They are not legal or tax advice, and they are not ready
+to publish** until "How to publish" is done. Read the review's "Residual
+risks" before publishing. The drafts are kept here, outside the deployed
+client, so nothing goes live early. They answer question Q12 of
 [`../hosted-sectors-plan.md`](../hosted-sectors-plan.md). Tax (Q13) is in
 [`../hosted-sectors-tax.md`](../hosted-sectors-tax.md).
 
-The two lists at the end are written so a Swedish lawyer and the company's
-accountant can answer them quickly: each point says what the draft does now,
-the rule it rests on, and the question.
+The two lists at the end were written for a Swedish lawyer and the company's
+accountant. Each point says what the draft does now, the rule it rests on, and
+the question. The answers are in the review, sections 5 and 6.
 
 ## What is here
 
 | File | Becomes | What it is |
 |---|---|---|
 | [`purchase-terms.html`](purchase-terms.html) | `/purchase-terms.html` (new) | Terms of Sale and refund policy for a hosted sector |
-| [`privacy.html`](privacy.html) | `/privacy.html` (replaces the current page) | The current policy plus: TIDN AB as controller, legal bases, the named service providers including Stripe, retention periods, GDPR rights, hosted sectors |
+| [`privacy.html`](privacy.html) | `/privacy.html` (replaces the current page) | The current policy plus: TIDN AB as controller, legal bases, the named service providers including Stripe, retention periods, GDPR and UK GDPR rights, hosted sectors, cosmetics |
+| [`ai-review-2026-11-28.md`](ai-review-2026-11-28.md) | nothing (removed with this folder) | The AI legal and tax review: clause ratings, answers to both lists, mismatches with the code, residual risks |
 
 Both use the existing `/legal.css`, so they look like the current pages once
 they sit in `packages/client/public/`.
@@ -42,17 +49,23 @@ Publishing is blocked until these markers are filled in.
 | Marker | File | What is needed |
 |---|---|---|
 | `[[EFFECTIVE_DATE]]` | both | The date the pages go live |
-| `[[PHONE]]` | `purchase-terms.html` | A telephone number for the seller. EU law lists it among the information a consumer must get before buying (Directive 2011/83/EU Art. 6(1)(c); lag (2005:59) 2 kap. 2 §) |
+| `[[UK_REPRESENTATIVE]]` | `privacy.html` | Name and address of TIDN AB's UK GDPR representative (UK GDPR Art. 27; added 2026-11-28, review section 4). Required because the game is offered to people in the UK |
 
-**Settled on 2026-11-27** (the owner: "just do it"): Backblaze is not used
-(production's hourly Backblaze job is off and staging keeps no backups), so it
-is removed from the privacy draft. **Before publishing, check the existing
-buckets** (`be-backups-staging`, `be-backups-prod`, from
-`docs/hetzner-migration-plan.md`): expiry was done only by the now-disabled
-job, so old snapshots may still be there. Empty or delete them, or restore
-the Backblaze line with their region. If Backblaze is ever turned on again
-(re-running `bootstrap-server.sh` with `BACKUP_BUCKET` set does that), the
-bucket must be in Backblaze's EU region and the privacy page updated first.
+**Backblaze, decided 2026-11-27** (the owner): production gets an hourly
+off-site database backup in Backblaze B2 again, beside Hetzner's daily server
+backups, so paying players lose at most about an hour of play and a copy
+survives the loss of the Hetzner account. The privacy draft names Backblaze
+again: an EU-region bucket (Netherlands), 48 hours of hourly copies and 14 days
+of daily copies (the bucket's lifecycle rules delete them at the latest a day
+later, even if the job stops), deletions reaching backups within 15 days and
+reapplied on restore, and the hashed deletion ledger stored beside them. The job is still
+switched off until the owner turns it on (`docs/agents/deploys.md`
+"Backups"), and must not be turned on before this page is published.
+**Before publishing, check the old buckets** (`be-backups-staging`,
+`be-backups-prod`, from `docs/hetzner-migration-plan.md`): expiry was done
+only by the disabled job, and B2 kept "deleted" files as hidden versions, so
+old snapshots may still be there. Empty or delete them; production uses a new
+EU bucket with the age-based lifecycle rules in `docs/agents/deploys.md` "Backups".
 Hetzner keeps the 7 most recent daily backups of the production server
 (hosted sector servers and staging have none). Logs: the privacy page says
 what is true without a size or a day count, because only the app container's
@@ -183,8 +196,9 @@ acknowledgement (8c) and saving results (8d).
     endpoint stays open, as Q9 decided.
 13. **Countries not sold to.** A Stripe Radar rule on the billing country, as in
    [`../hosted-sectors-tax.md`](../hosted-sectors-tax.md) ("Stripe settings").
-   **Decided by the owner, 2026-11-26:** at launch, block the United Kingdom
-   only. The owner applies the rule in Stripe before sales open.
+   **Decided by the owner, 2026-11-27** (replaces 2026-11-26): no country is
+   blocked, the United Kingdom included. The owner registers for UK VAT when
+   the first UK consumer buys. No Radar rule is needed.
 
 ## Change to the Terms of Service
 
@@ -224,17 +238,16 @@ launch product. The Terms of Sale cover hosted sectors only and say so
 - Say what happens to bought cosmetics if an account is suspended or deleted.
 - They give no advantage in play (`docs/gdd.md` §8 hard rule).
 
-**Gap as of 2026-11-26:** the owner has approved selling the first cosmetic,
-"Claim the title of Count" (USD 4.99), through the same checkout (plan §15,
-8e). The Terms of Sale (`purchase-terms.html` section 2) still say hosted
-sectors are the only thing on sale, and no cosmetics section exists; the
-consent wording, withdrawal (digital content, Art. 16(m)), "kept
-permanently", suspension/deletion and refunds that remove the item all need
-text. The tax note covers hosted sectors only and should say cosmetics are
-an electronically supplied service taxed the same way. Code for 8e can be
-built in test mode; selling waits for that text.
+**Written 2026-11-28** as Terms of Sale section 7a, which covers every point
+above, and "Claim the title of Count" (USD 4.99) by name. Section 2 now lists
+cosmetics. The tax note says cosmetics are taxed like sectors. What the 8e code
+must do for it (the consent wording for digital content, granting only after
+the confirmation email, refusing a second purchase, revoking on a full refund)
+is in the review, section 7.
 
 ## Points a lawyer should look at
+
+**Answered 2026-11-28** by the AI review, section 5 (owner decision: no lawyer).
 
 1. **Digital service, and the deduction.** The draft treats a hosted sector as
    a digital service (it lets players create and share data online;
@@ -291,8 +304,8 @@ built in test mode; selling waits for that text.
     Framework enough for analytics, and should fonts be served from our own
     server instead?
 12. **Service providers.** The privacy draft names Firebase, Hetzner, Stripe,
-    Resend, Slack, GitHub and Google Fonts, all found in the code (Backblaze
-    too, if its buckets are kept; see "Still to fill in").
+    Resend, Slack, GitHub and Google Fonts, all found in the code, and
+    Backblaze for off-site backups (see "Still to fill in").
     **Question:** for each, is it a processor or an independent controller, and
     is its data processing agreement accepted? Stripe is partly an
     independent controller.
@@ -315,6 +328,8 @@ built in test mode; selling waits for that text.
 
 ## Points the accountant should look at
 
+**Answered 2026-11-28** by the AI review, section 6 (owner decision: no accountant).
+
 Each refers to [`../hosted-sectors-tax.md`](../hosted-sectors-tax.md).
 
 1. **Classification.** Is a hosted sector an electronically supplied service,
@@ -329,9 +344,11 @@ Each refers to [`../hosted-sectors-tax.md`](../hosted-sectors-tax.md).
 4. **Stripe under the threshold.** Stripe Tax calculates tax only where a
    registration is added. Confirm the Stripe setting that charges Swedish VAT
    to consumers in other EU countries, and test it before the first sale.
-5. **United Kingdom.** No threshold for a non-UK seller. Register for UK VAT
-   before launch, or refuse UK buyers? Is a Radar rule on the declared billing
-   country enough to refuse them?
+5. **United Kingdom.** No threshold for a non-UK seller. The owner decided on
+   2026-11-27 to sell to UK consumers from launch and register for UK VAT when
+   the first one buys. **Question:** how soon after that first sale must TIDN
+   AB register, and how is VAT on that sale accounted for if registration
+   comes after it?
 6. **Norway, Switzerland, United States.** Confirm the thresholds in the note,
    whether a US state that taxes the service accepts a tax-inclusive price, and
    who watches Stripe's threshold alerts.
@@ -358,6 +375,24 @@ Each refers to [`../hosted-sectors-tax.md`](../hosted-sectors-tax.md).
 Each has a recommendation. They are also in the pull request that added this
 section.
 
+**Owner answers, 2026-11-27:**
+- 1: the telephone number +46 827 84 88 is filled in.
+- 4: minimum age for buying is 18. Whether a parent's or guardian's
+  permission can replace it is left to the lawyer.
+- 6: build the analytics consent prompt (plan step 8f) before the privacy page
+  is published.
+- 11: accepted as recommended (30 days' notice; a daily-basis refund for any
+  sector less than 30 days old).
+- 12: accepted as recommended ("for as long as Border Empires is operated").
+  The Count bundle is the only cosmetic for launch.
+- 10: sell to the United Kingdom from launch; the owner handles UK VAT when
+  the first UK consumer buys.
+- Still open: 2, 3, 7, 8 and 13.
+
+**Owner decision, 2026-11-28:** the texts and the tax setup are reviewed with
+AI legal skills instead of a lawyer and an accountant (see the top of this
+file).
+
 1. **Telephone number** for the pages (`[[PHONE]]`). Recommended: give one,
    unless the lawyer says it is not needed.
 2. **The deduction base** (one thirtieth a day). Recommended: keep it until
@@ -375,8 +410,9 @@ section.
    published; until then turn analytics off for the web client.
 7. **Google Fonts.** Recommended: serve the fonts from our own server.
 8. **Hetzner fallback location.** Recommended: EU locations only.
-9. **Backblaze region.** Settled 2026-11-27: Backblaze is not used; if it
-   ever is, an EU bucket.
+9. **Backblaze region.** Settled 2026-11-27: Backblaze is used again for
+   hourly production backups, in an EU-region bucket (Netherlands); the
+   privacy draft says so.
 10. **United Kingdom at launch.** Recommended: refuse UK buyers until UK VAT
     registration is worth it, as the tax note proposes.
 11. **If Border Empires closes while hosted sectors run.** Recommended: promise
@@ -385,13 +421,23 @@ section.
 12. **Cosmetics: "kept permanently".** Recommended: "for as long as Border
     Empires is operated". The GDD lists cosmetics at launch; confirm whether
     they launch with hosted sectors, so the terms can cover them in time.
+13. **Cosmetics bought just before a closure** (new, 2026-11-28). Recommended:
+    if Border Empires closes, refund cosmetics bought in the 30 days before the
+    announcement, as for young hosted sectors (answer 11). Terms of Sale §7a
+    promises only the 30 days' notice until this is answered.
 
 ## How to publish
 
 1. Fill in the markers in both files.
-2. Have the texts reviewed by a lawyer and the tax setup confirmed by the
-   accountant.
-3. Finish "What the code and settings must do before sales open".
+2. ~~Have the texts reviewed by a lawyer and the tax setup confirmed by the
+   accountant.~~ Replaced by the owner's decision of 2026-11-28: the AI review
+   of 2026-11-28 ([`ai-review-2026-11-28.md`](ai-review-2026-11-28.md)). Before
+   publishing, open the five sources it marks **(check first)**, read its
+   "Residual risks", and do its owner actions (UK representative, record of
+   processing, Slack and Hetzner DPAs, the Swiss turnover check, UK VAT
+   registration before sales open).
+3. Finish "What the code and settings must do before sales open", and the
+   further code items in the review, section 7.
 4. Move `purchase-terms.html` and `privacy.html` into
    `packages/client/public/`, apply the Terms of Service change, link the
    Terms of Sale from the hosting page and from `support.html`, add a client

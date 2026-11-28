@@ -9,6 +9,7 @@
 
 import type { PersonalActivityCard, PersonalActivityTileFeatureCount, PersonalActivityTimeline } from "@border-empires/game-domain";
 import { listNames, plural, roundedAmount, type PlayerNameLookup } from "../client-activity-dashboard/client-activity-dashboard-names.js";
+import { welcomeBackLines, type WelcomeBackSummary } from "../client-welcome-back/client-welcome-back.js";
 
 /** The parts of a respawn notice the headline reads (client-types.ts PlayerRespawnNotice). */
 export type ChronicleRespawn = { at: number; reasonCode: string; spawnTileKey?: string | undefined };
@@ -20,6 +21,8 @@ export type ChronicleHeadlineInput = {
   awaySince: number;
   respawn?: ChronicleRespawn | undefined;
   nameOf: PlayerNameLookup;
+  /** The server's WELCOME_BACK summary; shown when it arrived after the watermark. */
+  welcomeBack?: WelcomeBackSummary | undefined;
 };
 
 export type ChronicleHeadlineTally = {
@@ -163,9 +166,12 @@ const esc = (text: string): string =>
 
 /** The headline block, or "" when there is nothing to say. */
 export const chronicleHeadlineHtml = (input: ChronicleHeadlineInput): string => {
-  const lines = chronicleHeadlineLines(chronicleHeadlineTally(input));
+  const events = chronicleHeadlineLines(chronicleHeadlineTally(input));
+  // What came in while away goes first: it explains a treasury that jumped past the listed rate.
+  const away = input.welcomeBack && input.welcomeBack.at > input.awaySince ? welcomeBackLines(input.welcomeBack) : [];
+  const lines = [...away, ...events];
   if (lines.length === 0) return "";
   // Nothing gained to open with: the block keeps its alarm colour.
-  const lossOnly = /^(Lost|Wiped)/.test(lines[0] ?? "");
+  const lossOnly = /^(Lost|Wiped)/.test(events[0] ?? "");
   return `<div class="v2c-headline${lossOnly ? " v2c-headline-loss" : ""}" role="status"><span class="v2c-headline-h">Since you last looked</span>${lines.map((line) => `<p class="v2c-headline-line">${esc(line)}</p>`).join("")}</div>`;
 };

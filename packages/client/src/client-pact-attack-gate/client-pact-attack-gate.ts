@@ -15,6 +15,8 @@ import type { ActiveTruceView, FeedSeverity, FeedType, Tile, TileActionDef } fro
 
 const ATTACK_ROW_IDS: ReadonlyArray<TileActionDef["id"]> = ["launch_attack", "attack_connected_region"];
 export const COURT_ARMISTICE_ATTACK_REASON = "Court armistice: no attacks until it ends";
+/** Shown on a truced House's attack button, where a cost would be: phones never see the detail tooltip. */
+export const BREAKS_TRUCE_NOTE = "Breaks truce";
 export const ALLY_NOT_BORDERING_REASON = "Ally doesn't border your territory or a linked dock";
 // Same "1h 23m" countdown as the Diplomacy and Alliances screens.
 const hoursLeft = socialRemainingLabel;
@@ -45,7 +47,8 @@ export const gateAttackRowsOnTruce = (
       rows[index] =
         truce.origin === "court"
           ? { ...rest, detail: "Court armistice", ...tileActionAvailability(false, COURT_ARMISTICE_ATTACK_REASON) }
-          : { ...rest, detail: `Truce with ${truce.otherPlayerName}: attacking means breaking it first`, ...tileActionAvailability(true, "") };
+          // Playtest 2026-11-27: a big gold "Launch Attack" with nothing on it said a truce stood in the way.
+          : { ...rest, cost: BREAKS_TRUCE_NOTE, breaksTruce: true, detail: `Truce with ${truce.otherPlayerName}: attacking means breaking it first`, ...tileActionAvailability(true, "") };
     }
     const gated = rows[index]!;
     if (supplyWarning && !gated.disabled) rows[index] = { ...gated, detail: gated.detail ? `${gated.detail} · ${supplyWarning}` : supplyWarning };

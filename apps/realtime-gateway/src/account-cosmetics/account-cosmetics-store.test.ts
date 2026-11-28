@@ -20,11 +20,21 @@ const stores: Array<[string, () => AccountCosmeticsStore]> = [
 ];
 
 describe.each(stores)("%s account cosmetics store", (_name, create) => {
+  it("remembers the contest each slot last changed in, per account", async () => {
+    const store = create();
+    expect(await store.slotChangedSeasonId("p1", "crest")).toBeUndefined();
+    await store.recordSlotChange("p1", "crest", "s1");
+    await store.recordSlotChange("p1", "crest", "s2");
+    expect(await store.slotChangedSeasonId("p1", "crest")).toBe("s2");
+    expect(await store.slotChangedSeasonId("p2", "crest")).toBeUndefined();
+    expect(await store.slotChangedSeasonId("p1", "musterFlag")).toBeUndefined();
+  });
+
   it("starts with nothing owned and the default look", async () => {
     const store = create();
     expect(await store.listOwned("p1")).toEqual([]);
     expect(await store.getSelection("p1")).toEqual({});
-    expect(await store.listSelections(10)).toEqual({ selections: [], truncated: false });
+    expect(await store.listSelections(10, "paid")).toEqual({ selections: [], truncated: false });
     expect(await store.counts()).toEqual({ owned: 0, selected: 0 });
   });
 
@@ -62,15 +72,34 @@ describe.each(stores)("%s account cosmetics store", (_name, create) => {
     await store.setSelection("p2", "musterFlag", "flag-high-noble");
     await store.setSelection("p3", "musterFlag", "flag-high-noble");
     await store.setSelection("p3", "musterFlag", null);
-    const all = await store.listSelections(10);
+    const all = await store.listSelections(10, "paid");
     expect(all.truncated).toBe(false);
     expect(new Map(all.selections)).toEqual(new Map([
       ["p1", { musterFlag: "flag-high-noble" }],
       ["p2", { musterFlag: "flag-high-noble" }]
     ]));
-    const capped = await store.listSelections(1);
+    const capped = await store.listSelections(1, "paid");
     expect(capped.truncated).toBe(true);
     expect(capped.selections).toHaveLength(1);
+  });
+
+  it("lists crest-only accounts apart from accounts with a paid look, so crests never fill the paid list", async () => {
+    const store = create();
+    await store.setSelection("a-crest", "crest", "crest-anchor");
+    await store.setSelection("b-crest", "crest", "crest-key");
+    await store.setSelection("z-paid", "musterFlag", "flag-high-noble");
+    await store.setSelection("z-paid", "crest", "crest-stag");
+    expect(await store.listSelections(1, "paid")).toEqual({ selections: [["z-paid", { musterFlag: "flag-high-noble", crest: "crest-stag" }]], truncated: false });
+    const crests = await store.listSelections(1, "freeOnly");
+    expect(crests.truncated).toBe(true);
+    expect(crests.selections).toEqual([["a-crest", { crest: "crest-anchor" }]]);
+  });
+
+  it("revoking a free crest leaves it shown", async () => {
+    const store = create();
+    await store.setSelection("p1", "crest", "crest-anchor");
+    expect(await store.revoke("p1", "crest-anchor")).toEqual({ revoked: false });
+    expect(await store.getSelection("p1")).toEqual({ crest: "crest-anchor" });
   });
 });
 
@@ -84,6 +113,6 @@ describe("sqlite account cosmetics store across a restart", () => {
     const reopened = new SqliteAccountCosmeticsStore(db, () => 2_000);
     reopened.applySchema();
     expect(await reopened.getSelection("p1")).toEqual({ musterFlag: "flag-high-noble", crest: "crest-lighthouse" });
-    expect((await reopened.listSelections(10)).selections).toEqual([["p1", { musterFlag: "flag-high-noble", crest: "crest-lighthouse" }]]);
+    expect((await reopened.listSelections(10, "paid")).selections).toEqual([["p1", { musterFlag: "flag-high-noble", crest: "crest-lighthouse" }]]);
   });
 });

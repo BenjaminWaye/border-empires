@@ -15,6 +15,7 @@ import {
   shouldShowRendererPrompt,
   shouldShowTwoDimensionalNotice
 } from "./client-renderer-prompt.js";
+import { liftRendererPromptOverlay } from "./client-renderer-prompt-layer.js";
 
 export type RendererPromptOverlayDeps = {
   readonly state: ClientState;
@@ -57,6 +58,7 @@ export const renderRendererPromptOverlay = (deps: RendererPromptOverlayDeps): vo
     activityDashboardOpen: state.activityDashboard.open
   });
   rendererPromptShown = canShowRendererPrompt;
+  if (canShowRendererPrompt) liftRendererPromptOverlay(overlayEl);
   overlayEl.style.display = canShowRendererPrompt ? "grid" : "none";
   if (!canShowRendererPrompt) {
     if (overlayEl.innerHTML) overlayEl.innerHTML = "";

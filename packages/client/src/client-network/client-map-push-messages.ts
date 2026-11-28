@@ -7,6 +7,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import { houseChargesWithLiveNames } from "../client-house-charges/client-house-charges-live-names.js";
 import { celebrateNewlyHeldCharges } from "../client-unlock-celebration/client-unlock-celebration-triggers.js";
 import { applyLongestRoadMessage } from "../client-achievements/client-achievements-state.js";
+import { applyWelcomeBackMessage } from "../client-welcome-back/client-welcome-back.js";
 
 // The simulation's change-driven map pushes, each a full replacement of one
 // piece of map state (extracted from client-network.ts, 500-line budget).
@@ -43,6 +44,11 @@ export const applyMapPushMessage = (state: ClientState, msg: Record<string, unkn
   // Who holds Longest Road now (client-achievements/); shown on the Ranks screen.
   if (msg.type === "LONGEST_ROAD") {
     if (applyLongestRoadMessage(state, msg)) renderHud();
+    return true;
+  }
+  // What the empire did while the player was away (client-welcome-back/); the Chronicle's headline shows it.
+  if (msg.type === "WELCOME_BACK") {
+    if (applyWelcomeBackMessage(msg)) renderHud();
     return true;
   }
   return false;

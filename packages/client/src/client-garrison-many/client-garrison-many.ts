@@ -2,6 +2,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { createGarrisonManyState, GARRISON_MANY_LIMIT, garrisonTileReason, buildGarrisonManyPlan } from "./client-garrison-many-model.js";
 import { garrisonManyHtml } from "./client-garrison-many-view.js";
+import { keptRegionCharges, selectedTilesInRegionCharges } from "../client-house-charges/client-house-charges-garrison-many.js";
 import "./client-garrison-many.css";
 
 export interface GarrisonManyDeps {
@@ -51,7 +52,8 @@ export const createGarrisonManyFlow = (state: ClientState, deps: GarrisonManyDep
     }
     const current = buildGarrisonManyPlan(state);
     state.garrisonMany.invalidKeys = current.excluded.map((entry) => entry.key);
-    const html = garrisonManyHtml(state.garrisonMany.keys.length, current, note);
+    const inCharge = keptRegionCharges(state).length > 0 ? selectedTilesInRegionCharges(state, state.garrisonMany.keys) : undefined;
+    const html = garrisonManyHtml(state.garrisonMany.keys.length, current, note, inCharge);
     if (html !== previousHtml) {
       previousHtml = html;
       sheet.innerHTML = html;

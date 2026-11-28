@@ -1,9 +1,10 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Siege rule (owner 2026-11-27, shared town-siege.ts): the sim's authoritative
-// roll defends a town with no garrisoned plot of its own around it, and a rival
-// on its ring, at TOWN_BESIEGED_DEFENSE_MULT; any other town is unchanged.
+// Siege rule (owner 2026-11-27, "cut off completely", shared town-siege.ts):
+// the sim's authoritative roll defends a town whose owner holds no plot of any
+// kind around it, with a rival on its ring, at TOWN_BESIEGED_DEFENSE_MULT; any
+// other town is unchanged.
 const rolled: Array<{ defMult: number; besieged: boolean | undefined }> = [];
 vi.mock("@border-empires/shared", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@border-empires/shared")>();
@@ -100,6 +101,21 @@ describe("buildLockedCombatResolution -- besieged towns", () => {
     // Garrisoned (1.3) x Town (1.2) with nothing else in play.
     expect(supplied!.defMult).toBeCloseTo(1.3 * 1.2, 6);
     expect(besieged!.defMult).toBeCloseTo(1.3 * 1.2 * TOWN_BESIEGED_DEFENSE_MULT, 6);
+  });
+
+  it("does not besiege a fresh town whose ring is still its owner's frontier when attacked from one plot", () => {
+    // Regression (post-merge review of #3023): the attacker's own launch plot
+    // sat on the ring, so any town without a garrisoned ring plot counted as
+    // besieged the moment it was attacked.
+    const tiles = ringTiles(false);
+    for (const tile of tiles.values()) {
+      if (tile.x === TOWN.x && tile.y === TOWN.y) continue;
+      if (tile.x === TOWN.x - 1 && tile.y === TOWN.y) continue; // the attacker's launch plot
+      tiles.set(`${tile.x},${tile.y}`, { ...tile, ownerId: DEFENDER_ID, ownershipState: "FRONTIER" });
+    }
+    attackTown(makeContext(tiles));
+    expect(rolled.at(-1)!.besieged).toBe(false);
+    expect(rolled.at(-1)!.defMult).toBeCloseTo(1.3 * 1.2, 6);
   });
 
   it("ignores the defender's allies on the ring: they neither besiege nor supply the town", () => {

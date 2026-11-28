@@ -1,5 +1,6 @@
 import {
   cosmeticDefinition,
+  isFreeCosmetic,
   sanitizeCosmeticSelection,
   type CosmeticId,
   type CosmeticSlot,
@@ -14,8 +15,20 @@ import {
 // so the hosted-sector payment work must call `grant` on each server an
 // account plays on (or replace this store with a central one).
 
-/** Hard bound on the selections loaded into memory at boot. */
+/** Hard bound on the accounts showing a paid look, loaded into memory at boot. */
 export const MAX_LOADED_COSMETIC_SELECTIONS = 5_000;
+/**
+ * Separate hard bound on accounts that show only free cosmetics (House
+ * crests). Any account can pick a crest, so crests get their own set and can
+ * never push a paid look out of `MAX_LOADED_COSMETIC_SELECTIONS`.
+ */
+export const MAX_LOADED_FREE_COSMETIC_SELECTIONS = 20_000;
+
+/** "paid": the look includes at least one cosmetic that is not free. */
+export type ShownLookKind = "paid" | "freeOnly";
+
+export const shownLookKind = (selection: PlayerCosmeticSelection): ShownLookKind =>
+  Object.values(selection).some((id) => typeof id === "string" && !isFreeCosmetic(id)) ? "paid" : "freeOnly";
 
 export type CosmeticGrantResult = { newlyGranted: boolean };
 
@@ -31,14 +44,18 @@ export interface AccountCosmeticsStore {
   getSelection(playerId: string): Promise<PlayerCosmeticSelection>;
   /** `null` returns the slot to the default look. Does not check ownership. */
   setSelection(playerId: string, slot: CosmeticSlot, cosmeticId: CosmeticId | null): Promise<PlayerCosmeticSelection>;
-  /** Every account with a non-default look, at most `limit` accounts. */
-  listSelections(limit: number): Promise<{ selections: Array<[string, PlayerCosmeticSelection]>; truncated: boolean }>;
+  /** Accounts with a non-default look of the given kind, at most `limit` accounts. */
+  listSelections(limit: number, kind: ShownLookKind): Promise<{ selections: Array<[string, PlayerCosmeticSelection]>; truncated: boolean }>;
   counts(): Promise<{ owned: number; selected: number }>;
+  /** The contest (season id) this account last changed `slot` in, for once-per-contest slots (the crest). */
+  slotChangedSeasonId(playerId: string, slot: CosmeticSlot): Promise<string | undefined>;
+  recordSlotChange(playerId: string, slot: CosmeticSlot, seasonId: string): Promise<void>;
 }
 
 export class InMemoryAccountCosmeticsStore implements AccountCosmeticsStore {
   private readonly ownedByPlayerId = new Map<string, Set<CosmeticId>>();
   private readonly selectionByPlayerId = new Map<string, PlayerCosmeticSelection>();
+  private readonly slotChangeSeason = new Map<string, string>();
 
   async listOwned(playerId: string): Promise<CosmeticId[]> {
     return [...(this.ownedByPlayerId.get(playerId) ?? [])];
@@ -53,6 +70,7 @@ export class InMemoryAccountCosmeticsStore implements AccountCosmeticsStore {
   }
 
   async revoke(playerId: string, cosmeticId: CosmeticId): Promise<{ revoked: boolean }> {
+    if (isFreeCosmetic(cosmeticId)) return { revoked: false };
     const revoked = this.ownedByPlayerId.get(playerId)?.delete(cosmeticId) ?? false;
     const slot = cosmeticDefinition(cosmeticId)?.slot;
     if (slot && this.selectionByPlayerId.get(playerId)?.[slot] === cosmeticId) await this.setSelection(playerId, slot, null);
@@ -73,8 +91,8 @@ export class InMemoryAccountCosmeticsStore implements AccountCosmeticsStore {
     return { ...selection };
   }
 
-  async listSelections(limit: number): Promise<{ selections: Array<[string, PlayerCosmeticSelection]>; truncated: boolean }> {
-    const all = [...this.selectionByPlayerId.entries()];
+  async listSelections(limit: number, kind: ShownLookKind): Promise<{ selections: Array<[string, PlayerCosmeticSelection]>; truncated: boolean }> {
+    const all = [...this.selectionByPlayerId.entries()].filter(([, selection]) => shownLookKind(selection) === kind);
     return { selections: all.slice(0, limit).map(([id, selection]) => [id, { ...selection }]), truncated: all.length > limit };
   }
 
@@ -84,5 +102,13 @@ export class InMemoryAccountCosmeticsStore implements AccountCosmeticsStore {
     let selected = 0;
     for (const selection of this.selectionByPlayerId.values()) selected += Object.keys(selection).length;
     return { owned, selected };
+  }
+
+  async slotChangedSeasonId(playerId: string, slot: CosmeticSlot): Promise<string | undefined> {
+    return this.slotChangeSeason.get(`${playerId}\u0000${slot}`);
+  }
+
+  async recordSlotChange(playerId: string, slot: CosmeticSlot, seasonId: string): Promise<void> {
+    this.slotChangeSeason.set(`${playerId}\u0000${slot}`, seasonId);
   }
 }

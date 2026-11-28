@@ -1,5 +1,8 @@
-import { normalizeHex, isTaken, suggestAlternative, pickSuggestedPalette } from "../player-color-allocation/player-color-allocation.js";
+import { normalizeHex, pickSuggestedPalette } from "../player-color-allocation/player-color-allocation.js";
+import { colorPickRejection } from "../player-color-allocation/color-pick-rejection.js";
+import { colorsInUseOf } from "../player-color-allocation/taken-color-set.js";
 import { displayNameKey, isDisplayNameTaken, suggestAlternativeName } from "../display-name-uniqueness/display-name-uniqueness.js";
+import { PROFILE_CHANGE_LIMIT_REASON, profileChangeAllowanceFields } from "../profile-change-allowance/profile-change-allowance.js";
 
 // Extracted from gateway-app.ts's dispatcher switch to keep that (already
 // oversized) file from growing -- mirrors handle-set-tile-color-message.ts.
@@ -76,10 +79,11 @@ export const handleSetProfileMessage = async (deps: SetProfileMessageDeps): Prom
   const existingColor = normalizeHex(existingProfile?.tileColor ?? "");
   const colorUnchanged = existingColor !== null && existingColor === normalized;
   const taken = await buildTakenColorSet(playerId);
-  if (!colorUnchanged && isTaken(normalized, taken)) {
-    const suggestion = suggestAlternative(normalized, taken);
+  const rejection = colorUnchanged ? undefined : colorPickRejection(normalized, taken);
+  if (rejection) {
     incrementColorCollisionRejectedTotal();
-    sendJson({ type: "ERROR", code: "COLOR_TAKEN", message: "That colour is already taken by another empire.", suggestion });
+    // colorsInUse: the set this was checked against, so the client re-checks with it.
+    sendJson({ type: "ERROR", code: "COLOR_TAKEN", message: rejection.message, suggestion: rejection.suggestion, colorsInUse: colorsInUseOf(taken) });
     return;
   }
 
@@ -96,11 +100,11 @@ export const handleSetProfileMessage = async (deps: SetProfileMessageDeps): Prom
     currentSeasonId = await getCurrentSeasonId();
   }
   if (isRename && currentSeasonId && existingProfile?.nameChangedSeasonId === currentSeasonId) {
-    sendJson({ type: "ERROR", code: "DISPLAY_NAME_LIMIT", message: "You can only change your display name once per Sector Contest. Try again in the next one." });
+    sendJson({ type: "ERROR", code: "DISPLAY_NAME_LIMIT", message: PROFILE_CHANGE_LIMIT_REASON.name });
     return;
   }
   if (isColorChange && currentSeasonId && existingProfile?.colorChangedSeasonId === currentSeasonId) {
-    sendJson({ type: "ERROR", code: "COLOR_LIMIT", message: "You can only change your empire colour once per Sector Contest. Try again in the next one." });
+    sendJson({ type: "ERROR", code: "COLOR_LIMIT", message: PROFILE_CHANGE_LIMIT_REASON.color });
     return;
   }
 
@@ -125,14 +129,15 @@ export const handleSetProfileMessage = async (deps: SetProfileMessageDeps): Prom
       ...(typeof storedProfile.profileComplete === "boolean" ? { profileComplete: storedProfile.profileComplete } : {})
     });
     renamePlayer(playerId, saveOverride.name ?? displayName);
-    return { override: saveOverride } as const;
+    return { override: saveOverride, storedProfile } as const;
   });
   if ("takenNames" in saved) {
     incrementDisplayNameCollisionRejectedTotal();
     sendJson({ type: "ERROR", code: "NAME_TAKEN", message: "That name is already taken by another empire.", suggestion: suggestAlternativeName(displayName, saved.takenNames) });
     return;
   }
-  const { override } = saved;
+  const { override, storedProfile: storedAllowance } = saved;
+  const colorsInUse = colorsInUseOf(taken); // before adding the player's own colour: theirs is never "in use" to them
   taken.add(normalized);
   const suggestedColors = pickSuggestedPalette(6, taken);
   const stylePayload = preSerializeBroadcast({ type: "PLAYER_STYLE", playerId, name: override.name ?? displayName, tileColor: override.tileColor ?? normalized });
@@ -144,7 +149,10 @@ export const handleSetProfileMessage = async (deps: SetProfileMessageDeps): Prom
       tileColor: override.tileColor ?? normalized,
       profileNeedsSetup: false,
       canToggleFog,
-      suggestedColors
+      suggestedColors,
+      colorsInUse,
+      // Which once-per-contest changes are now spent, so the dialog can say so (profile-change-allowance.ts).
+      ...(currentSeasonId ? profileChangeAllowanceFields(storedAllowance, currentSeasonId) : {})
     });
   }
 };

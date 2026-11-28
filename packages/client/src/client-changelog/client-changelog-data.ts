@@ -2,10 +2,9 @@ import { NOV_19_20_CHANGELOG } from "./client-changelog-nov-19-20.js";
 import { NOV_21_CHANGELOG } from "./client-changelog-nov-21.js";
 import { NOV_23_CHANGELOG } from "./client-changelog-nov-23.js";
 import { NOV_25_26_CHANGELOG } from "./client-changelog-nov-25-26.js";
+import { NOV_27_28_CHANGELOG } from "./client-changelog-nov-27-28.js";
+import { QUIET_GOOD_NEWS_ENTRY } from "./client-changelog-quiet-good-news.js";
 import { CHRONICLE_OPENS_YOURS_ENTRY } from "./client-changelog-chronicle-opens-yours.js";
-import { GUIDE_ISLAND_DOCK_ENTRY } from "./client-changelog-guide-island-dock.js";
-import { INSURGENTS_ENTRY } from "./client-changelog-insurgents.js";
-import { ATTACK_EN_ROUTE_ENTRY } from "./client-changelog-attack-en-route.js";
 import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-world-headlines.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
@@ -487,10 +486,9 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...NOV_21_CHANGELOG,
   ...NOV_23_CHANGELOG,
   ...NOV_25_26_CHANGELOG,
+  { ...QUIET_GOOD_NEWS_ENTRY, createdAt: 1795724321729, },
   { ...CHRONICLE_OPENS_YOURS_ENTRY, createdAt: 1795724340365, },
-  { ...GUIDE_ISLAND_DOCK_ENTRY, createdAt: 1795779416929, },
-  { ...ATTACK_EN_ROUTE_ENTRY, createdAt: 1795779638841, },
-  { ...INSURGENTS_ENTRY, createdAt: 1795780690085, },
+  ...NOV_27_28_CHANGELOG,
 ];
 
 export const CLIENT_CHANGELOG_ENTRIES = recentClientChangelogEntries(ALL_CLIENT_CHANGELOG_ENTRIES);

@@ -23,11 +23,6 @@
   color: var(--sp-brass-300);
 }
 
-/* ---- Rally link settings card ---- */
-.auth-rally-link p {
-  color: var(--sp-parchment-muted);
-}
-
 /* ---- Rush-buy button ---- */
 .tile-progress-rush-buy {
   border-color: var(--sp-brass-500);

@@ -156,6 +156,9 @@
   color: var(--v2-text, #ece2cc);
 }
 .effort-confirm-info:empty { display: none; }
+/* How long the attack's muster flag takes to fill, and that it can be taken meanwhile. */
+.effort-confirm-fill { margin: 0; font-family: var(--v2-mono, "Space Mono", monospace); font-size: 11px; color: #f0a447; }
+.effort-confirm-fill[hidden] { display: none; }
 
 /* ---- Actions: ghost Cancel, gold primary ---- */
 .effort-confirm-actions { display: flex; gap: 8px; }

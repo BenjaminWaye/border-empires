@@ -408,4 +408,12 @@ describe("tutorial guide steps", () => {
     expect(evaluateGuide(held, pastFoothold)).toEqual(expect.objectContaining({ title: "Tap the marked tile and build a Relay Beacon", highlightTiles: [site] }));
     expect(guideBeaconSite("reach-beacon", held)).toEqual(site);
   });
+
+  // Playtest 2026-11-27: the card sat on "Drag the map" at 4/18. The drag signal lives only in the page,
+  // so a player with later steps saved (after a reload) was sent back to step 1 forever.
+  it("counts the look-around steps done once a later step is saved", () => {
+    const view = evaluateGuide(baseInput(), new Set(["look-explore", "foothold-take-town", "foothold-take-food", "reach-beacon"]));
+    expect(view.kind === "step" ? view.step.id : view.kind).not.toBe("look-pan");
+    expect(view.kind === "step" ? view.newlyCompleted : []).toEqual(expect.arrayContaining(["look-pan", "look-zoom"]));
+  });
 });

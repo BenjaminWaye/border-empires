@@ -197,7 +197,9 @@ product, including paid Houses.
   way to personalise it). A House picks one of 12 crests, drawn in place of
   its initial inside the same emblem, so the diplomacy screen gains no extra
   marks, and stitched on its muster flags in place of the cog. Name, colour
-  and crest are chosen together in one dialog. The catalogue flags each crest `free`, so paid crests can be added
+  and crest are chosen together in one dialog. Each of the three can be changed
+  once per Sector Contest, with its own allowance; the first crest pick (letter
+  to crest) counts (owner decision, 2026-11-27). The catalogue flags each crest `free`, so paid crests can be added
   later without new plumbing. Details: [`cosmetics.md`](cosmetics.md#house-crests).
 - **Purchases belong to the account, not the device.** The web is the main
   shop. Payments go through Stripe (decided 2026-11-23). Stripe collects
@@ -279,12 +281,18 @@ baseline.
     every four hours. Next (owner, 2026-11-24): a run of days on the owner's
     own machine with humans playing in turns. Until then the hosting price
     is not settled.
+  - Known 2026-11-27, from 69.5 hours on the owner's MacBook with humans
+    playing in turns: the growth does not stop. What the simulation holds
+    after garbage collection rose to 470 MB, still about 1.2–1.5 MB an hour
+    on day 3; at that rate the heap's peaks reach the 900 MB limit around
+    day 10 of a contest. What holds it is not known yet. Tap times from that
+    run do not count, because the Mac was heavily loaded by other programs.
+    The hosting price is still not settled.
   - Known 2026-11-28
     ([`load-results/sim-heap-growth-2026-11-28.md`](load-results/sim-heap-growth-2026-11-28.md)),
-    from heap snapshots of an aged world after the owner's three-day run
-    (heap after GC 400 → 470 MB, still about 1.2–1.5 MB an hour on day 3):
-    that growth follows owned land, about 5 KB per newly owned tile, which
-    accounts for the whole day-3 rate; nothing found grows with time alone
+    from heap snapshots of an aged world: the growth above follows owned
+    land, about 5 KB per newly owned tile, which accounts for the whole
+    day-3 rate; nothing found grows with time alone
     without a cap. One memo that grew without a bound was fixed and the
     largest per-tile holder halved: on the same world the heap grows half as
     fast and is 42 MB smaller. If growth stops when the land is full, heap
@@ -298,7 +306,9 @@ baseline.
     watermark from 480 MB to 680 MB, so that checkpoints stop being put off at
     100 Houses. 1,250 MB held early in a contest but not on a world with about
     nine game hours of play (1.2–1.3 GB); in every run so far 1,500 MB would
-    have put off none. Still to confirm on a run of days
+    have put off none. Confirmed 2026-11-27 on the 69.5-hour run: process
+    memory reached 1,323 MB and the heap 659 MB at a checkpoint, so neither
+    watermark would have put one off
     ([`load-results/late-contest-2026-11-24.md`](load-results/late-contest-2026-11-24.md)).
 - What happens when a player tries to join a map with no room for a landing.
   *Answered 2026-11-26, owner decisions 2026-11-27* ([`game-mechanics.md`](game-mechanics.md), "No landing
@@ -319,8 +329,9 @@ baseline.
     sectors are greyed out in the sector list (§6), which offers funding a new
     sector when none has room, on hosted sectors too. AI Houses still land in
     the last-resort pass.
-  - Not built yet: an eliminated House that is online when a site frees up is
-    not landed until it logs in again, and is not told why it is waiting.
+  - Built 2026-11-28 (chosen by the agent on the owner's delegation): an
+    online House waiting for a landing site is landed within about a minute of
+    one freeing up, and the player is told it is waiting.
 - Current Apple and Google rules on purchases made on the web and used in the
   apps. *Researched 2026-11-25*
   ([`app-store-purchase-rules.md`](app-store-purchase-rules.md); Google

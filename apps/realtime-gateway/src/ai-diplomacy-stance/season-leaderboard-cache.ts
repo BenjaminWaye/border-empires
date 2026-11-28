@@ -17,7 +17,8 @@ export const seasonSizesFromSummary = (summary: Pick<CurrentSeasonSummary, "over
   ...(summary.dominanceTilesByPlayerId ? { dominanceTilesByPlayerId: summary.dominanceTilesByPlayerId } : {})
 });
 
-export type SeasonLeaderboardCache = () => Promise<SeasonSizes | undefined>;
+/** Calling it resolves to sizes as below; latest() is the last sizes fetched, without waiting (undefined before the first). */
+export type SeasonLeaderboardCache = (() => Promise<SeasonSizes | undefined>) & { latest: () => SeasonSizes | undefined };
 
 /** Resolves to the latest leaderboard, a stale one when a refresh fails or is slow, or undefined when there is none. */
 export const createSeasonLeaderboardCache = (deps: {
@@ -30,7 +31,7 @@ export const createSeasonLeaderboardCache = (deps: {
   const timeoutMs = deps.timeoutMs ?? SEASON_LEADERBOARD_TIMEOUT_MS;
   let cached: { sizes: SeasonSizes; expiresAt: number } | undefined;
   let inFlight: Promise<SeasonSizes | undefined> | undefined;
-  return () => {
+  const read = (): Promise<SeasonSizes | undefined> => {
     if (cached && cached.expiresAt > deps.now()) return Promise.resolve(cached.sizes);
     inFlight ??= (async () => {
       // A fetch that lands after the timeout still refreshes the cache for the next caller.
@@ -54,4 +55,5 @@ export const createSeasonLeaderboardCache = (deps: {
     })();
     return inFlight;
   };
+  return Object.assign(read, { latest: () => cached?.sizes });
 };

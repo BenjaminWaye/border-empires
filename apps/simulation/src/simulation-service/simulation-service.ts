@@ -92,6 +92,8 @@ import { createAiAndSystemShouldRun } from "./ai-and-system-should-run.js";
 import { captureSeasonWinnerAtCrowning } from "../season-crowning/season-crowning.js";
 import { finalScoreHistory, restoreScoreHistory } from "../score-history-sampler/score-history-persistence.js";
 import { preparePlayerHandler, joinSeasonHandler } from "./prepare-and-join-player.js";
+import { runPopulationGrowthTick } from "../population-growth-tick/population-growth-tick.js";
+import { LAND_WAITING_HOUSES_INTERVAL_MS, landWaitingHouses } from "../land-waiting-houses/land-waiting-houses.js";
 import { generateSeasonWorld } from "../season-worldgen/season-worldgen.js";
 import { createWorldgenBaselineCache, resolveDockRouteBackfillReader } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
 import { createActivePlayerIdentityMap, createRecoveredActivePlayerIdentityMap } from "../active-player-identity-map.js";
@@ -857,6 +859,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let watchedMusterTicker: ReturnType<typeof setInterval> | undefined;
   let watchtowerRevealTicker: ReturnType<typeof setInterval> | undefined;
   let populationGrowthTicker: ReturnType<typeof setInterval> | undefined;
+  let landWaitingHousesTicker: ReturnType<typeof setInterval> | undefined;
   let passiveIncomeTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopWindowMaxMs = 0;
   let latestEventLoopLagMs = 0;
@@ -1947,8 +1950,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   })
                 })
               : undefined;
-            // Emit a WELCOME_BACK message showing how much the player earned
-            // since their last active session (capped at 12h of accrual).
+            // Emit a WELCOME_BACK message: what the empire did since the player's
+            // last command or visit (coin stops after 24h away; welcome-back-ledger.ts).
             // Reuse incomePerMinute already computed for this subscribe's
             // snapshot instead of triggering a second, synchronous economy
             // rebuild on the live runtime (see welcomeBackSummary doc comment).
@@ -1963,7 +1966,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
                   commandId: `welcome-back:${call.request.player_id}:${Date.now()}`,
                   playerId: call.request.player_id,
                   messageType: "WELCOME_BACK",
-                  payloadJson: JSON.stringify({ type: "WELCOME_BACK", goldEarned: welcomeBack.goldEarned, elapsedMs: welcomeBack.elapsedMs })
+                  payloadJson: JSON.stringify({ type: "WELCOME_BACK", ...welcomeBack, at: Date.now() })
                 })
               : undefined;
             runtime.updatePlayerLastActive(call.request.player_id, Date.now());
@@ -2169,34 +2172,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       }, 60_000);
       populationGrowthTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
-        try {
-          const growthResult = trackSyncMainThreadTaskWithMetrics("tick_population_growth", undefined, () => runtime.tickPopulationGrowth(Date.now()));
-          if (growthResult) {
-            const { townsGrown, growthStalledNoFood, townsSkippedWar, townsSkippedCaptureShock, townsSkippedUnfed, townsSkippedLogisticCap, playersSkippedNoFedTowns, playerDiag } = growthResult;
-            const anyStalled = growthStalledNoFood > 0 || townsSkippedUnfed > 0 || playersSkippedNoFedTowns > 0;
-            if (anyStalled || townsGrown === 0) {
-              const diagByPlayer: Record<string, unknown> = {};
-              for (const [pid, d] of playerDiag) {
-                if (d.grown === 0 && d.totalTowns > 0) diagByPlayer[pid] = d;
-              }
-              log.warn({
-                townsGrown,
-                growthStalledNoFood,
-                townsSkippedWar,
-                townsSkippedCaptureShock,
-                townsSkippedUnfed,
-                townsSkippedLogisticCap,
-                playersSkippedNoFedTowns,
-                stalledPlayers: diagByPlayer
-              }, "[pop_growth] growth stalled or zero this tick");
-            } else {
-              log.info({ townsGrown, growthStalledNoFood, townsSkippedWar, townsSkippedUnfed }, "[pop_growth] tick ok");
-            }
-          }
-        } catch (error) {
-          log.error({ err: error }, "population growth tick failed");
-        }
+        runPopulationGrowthTick({ runtime, log, trackSync: trackSyncMainThreadTaskWithMetrics });
       }, 60_000);
+      // Online human Houses waiting for a landing site land once one is free (land-waiting-houses.ts).
+      landWaitingHousesTicker = setInterval(() => {
+        try {
+          landWaitingHouses({ runtime, log, deleteCachedSnapshot, getSeasonState: () => currentSeasonState }, subscriptionRegistry.subscribedPlayerIds());
+        } catch (error) {
+          log.error({ err: error }, "waiting-House landing tick failed");
+        }
+      }, LAND_WAITING_HOUSES_INTERVAL_MS);
       let territoryAutomationRunning = false;
       territoryAutomationTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
@@ -2501,6 +2486,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (watchedMusterTicker) clearInterval(watchedMusterTicker);
       if (watchtowerRevealTicker) clearInterval(watchtowerRevealTicker);
       if (populationGrowthTicker) clearInterval(populationGrowthTicker);
+      if (landWaitingHousesTicker) clearInterval(landWaitingHousesTicker);
       if (passiveIncomeTicker) clearInterval(passiveIncomeTicker);
       gcObserver?.disconnect();
       gcPauseObserver.disconnect();

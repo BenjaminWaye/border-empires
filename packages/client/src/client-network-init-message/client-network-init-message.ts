@@ -1,12 +1,12 @@
 import { applyInitJoinScreenFields } from "../client-join-season-late-join/client-join-season-late-join.js";
 import { hydrateTutorialGuideFromInit } from "../client-tutorial-guide/tutorial-guide-storage.js";
-import { applyInitPlayerStyles } from "../client-player-style-message/client-player-style-message.js";
+import { applyInitPlayerStyles, applyPlayerProfileFields } from "../client-player-style-message/client-player-style-message.js";
 import { applyResourceTradeState } from "../client-diplomacy-trade/client-resource-trade-state.js";
 import { applyRelicAndProgressionUpdate } from "../client-relic-overlay/relic-map-hints.js";
 import { applyAfcStateMessage } from "../client-afc-upgrades/client-afc-state.js";
 import { isChosenTrickleResource } from "@border-empires/shared";
 import { devQueueManpowerReservedTileKeys } from "../client-player-update-manpower/client-player-update-manpower.js";
-import { initDefensibilityPct } from "../client-init-defensibility/client-init-defensibility.js";
+import { applyInitIntegrity } from "../client-init-defensibility/client-init-defensibility.js";
 import { occupationSurveyController } from "../client-occupation-survey.js";
 import { applyGatewayRecoveryNextClientSeq } from "../client-frontier-command/client-frontier-command.js";
 import { clearServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
@@ -214,7 +214,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.logisticsThroughputPerMinute = (player.logisticsThroughputPerMinute as number | undefined) ?? state.logisticsThroughputPerMinute;
   state.settledT = (player.Ts as number) ?? state.settledT;
   state.settledE = (player.Es as number) ?? state.settledE;
-  state.defensibilityPct = initDefensibilityPct(player, defensibilityPctFromTE);
+  applyInitIntegrity(state, player, defensibilityPctFromTE);
   state.defensibilityAnimDir = 0;
   state.defensibilityAnimUntil = 0;
   state.availableTechPicks = (player.availableTechPicks as number) ?? 0;
@@ -337,7 +337,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     state.playerColors.set(state.me, myTileColor);
     authProfileColorEl.value = myTileColor;
   }
-  if (Array.isArray(player.suggestedColors)) state.suggestedColors = player.suggestedColors as string[];
+  applyPlayerProfileFields(state, player, true); // suggested swatches + once-per-contest change flags
   const myVisualStyle = player.visualStyle as any;
   if (myVisualStyle) state.playerVisualStyles.set(state.me, myVisualStyle);
   seedProfileSetupFields((typeof player.suggestedName === "string" && player.suggestedName) || (player.name as string) || state.authUserLabel, myTileColor ?? authProfileColorEl.value); // suggestedName: a free name picked by the server for players still setting up

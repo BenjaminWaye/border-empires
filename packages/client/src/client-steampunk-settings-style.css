@@ -98,6 +98,49 @@
   background: rgba(12, 9, 6, 0.85);
 }
 
+/* Too close to a rival's colour (client-color-clash.ts): greyed and struck through. */
+.auth-color-swatch[data-too-close="true"] {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none;
+  background-image: linear-gradient(135deg, transparent 46%, rgba(12, 9, 6, 0.9) 46%, rgba(12, 9, 6, 0.9) 54%, transparent 54%);
+}
+
+.auth-color-clash {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--sp-ember-400);
+}
+
+.auth-color-clash[hidden] {
+  display: none;
+}
+
+/* One-tap suggestion inside the clash note: a swatch of the free colour. */
+.auth-color-clash-try {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+  min-height: 28px;
+  padding: 2px 10px 2px 4px;
+  border: 1px solid var(--sp-brass-700);
+  border-radius: 14px;
+  background: rgba(20, 16, 10, 0.6);
+  color: var(--sp-parchment-300);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.auth-color-clash-try::before {
+  content: "";
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--swatch);
+  border: 1px solid rgba(0, 0, 0, 0.4);
+}
+
 /* ---- Debug overlay (bridge/ws diagnostics) ---- */
 
 .bridge-debug-status {

@@ -1,7 +1,7 @@
 // "Share profile" on your own in-game profile (docs/gdd.md §7). Asks the
 // gateway for this account's public profile link (POST /hq/public-profile/link,
 // which creates it on first use) and hands /house.html?h=<public id> to the
-// system share sheet, or copies it. The public id is random: the link never
+// system share sheet and copies it; the link stays on the profile. The public id is random: the link never
 // carries the player id.
 import { Capacitor } from "@capacitor/core";
 
@@ -10,6 +10,7 @@ import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
 import {
   publicProfileSharePending,
   publicProfileShareView,
+  rememberPublicProfileLink,
   rememberPublicProfileShareState,
   setPublicProfileSharePending,
   showPublicProfileShareNote,
@@ -57,29 +58,39 @@ export const publicProfileShareFailureLabel = (error: Exclude<PublicProfileLinkR
 
 type ShareNavigator = { share?: (data: { title: string; url: string }) => Promise<void>; clipboard?: { writeText: (text: string) => Promise<void> } };
 
-/** Resolves the label the button should show afterwards. */
+export const PUBLIC_PROFILE_LINK_COPIED = "Link copied";
+
+/**
+ * Resolves the note to show afterwards. Playtest 2026-11-27: tapping Share
+ * showed nothing but a new "Stop sharing" button -- a dismissed share sheet,
+ * or a blocked window.prompt, left no trace of the link. The link is now kept
+ * on the profile (rememberPublicProfileLink) and copied first, then the share
+ * sheet opens where there is one; the note says what happened.
+ */
 export const sharePublicProfile = async (deps: PublicProfileShareDeps, nav: ShareNavigator = navigator): Promise<string> => {
   const link = await requestPublicProfileLink(deps);
   if (!link.ok) return publicProfileShareFailureLabel(link.error);
   rememberPublicProfileShareState(deps, "on");
   const url = publicHouseUrl(link.publicId);
+  rememberPublicProfileLink(deps, url);
+  let copied = false;
+  try {
+    if (nav.clipboard) {
+      await nav.clipboard.writeText(url);
+      copied = true;
+    }
+  } catch {
+    copied = false;
+  }
   if (nav.share) {
     try {
       await nav.share({ title: "My House in Border Empires", url });
-      return PUBLIC_PROFILE_SHARE_LABEL;
-    } catch (error) {
-      // Dismissing the share sheet is not a failure; anything else falls back to copying.
-      if (error instanceof Error && error.name === "AbortError") return PUBLIC_PROFILE_SHARE_LABEL;
+      return copied ? PUBLIC_PROFILE_LINK_COPIED : "Shared";
+    } catch {
+      // Dismissed or refused: the link is still on screen (and copied, when it could be).
     }
   }
-  try {
-    if (!nav.clipboard) throw new Error("no clipboard");
-    await nav.clipboard.writeText(url);
-    return "Link copied";
-  } catch {
-    window.prompt("Copy your House profile link", url);
-    return PUBLIC_PROFILE_SHARE_LABEL;
-  }
+  return copied ? PUBLIC_PROFILE_LINK_COPIED : "Copy link below";
 };
 
 export const PUBLIC_PROFILE_STOP_LABEL = "Stop sharing";
@@ -94,6 +105,7 @@ export const stopSharingPublicProfile = async (deps: PublicProfileShareDeps): Pr
     const body = (await response.json().catch(() => undefined)) as { ok?: unknown } | undefined;
     if (body?.ok !== true) return "Couldn't stop sharing. Try again";
     rememberPublicProfileShareState(deps, "off");
+    rememberPublicProfileLink(deps, undefined);
     return "Sharing stopped";
   } catch {
     return "Couldn't stop sharing. Try again";

@@ -84,3 +84,10 @@ export const mapPointPickArmed = (state: {
   readonly marchOriginPicking: { readonly active: boolean };
   readonly musterMarchTargeting: { readonly active: boolean };
 }): boolean => state.scoutDronePicking.active || state.marchOriginPicking.active || state.musterMarchTargeting.active;
+
+/**
+ * Whether a plate lets taps through to the map. A plate on screen is a label over
+ * the tiles it covers (the site's own tile opens its card), so it never takes a tap;
+ * an edge tab is the only way to the off-screen site, so it does unless a map point is being picked.
+ */
+export const relicPlatePassesTaps = (edgeTab: boolean, mapPointPicking: boolean): boolean => !edgeTab || mapPointPicking;

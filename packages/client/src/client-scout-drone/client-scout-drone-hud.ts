@@ -21,8 +21,9 @@ import { exploreOfferWindowOpen } from "./client-scout-explore-offer-window.js";
 import { SCOUT_DRONE_ICON, SCOUT_FIND_ICONS, type ScoutFindKind } from "./client-scout-drone-icons.js";
 import type { ScoutDroneLandingReport } from "./client-scout-drone-state.js";
 import { SCOUT_FIND_LABEL as FIND_LABEL, pluralLabel as plural, scoutResourceLabel } from "./client-scout-drone-find-labels.js";
-import { scoutFindPlaces, scoutSitesFor } from "./client-scout-drone-finds.js";
+import { scoutReportChipPlaces } from "./client-scout-drone-find-places.js";
 import { clearGuideScoutPeek } from "../client-tutorial-guide/tutorial-guide-card.js";
+import { noteCaptureCardAutoHidden } from "../client-capture-effects/client-capture-ghost-tap.js";
 import "./client-scout-drone-hud.css";
 
 export type ScoutHudDeps = ScoutDockDeps & {
@@ -94,7 +95,8 @@ const chipHtml = (chip: Chip, i: number, framable: boolean): string => {
 const reportCardHtml = (report: ScoutDroneLandingReport, nameOf: (id: string) => string, framable: (chip: Chip) => boolean): string => {
   const chips = scoutReportChips(report);
   const body = chips.length > 0 ? chips.map((chip, i) => chipHtml(chip, i, framable(chip))).join("") : `<span class="srs-empty">Nothing new</span>`;
-  const turned = report.blockedBy ? `<span class="srs-turned">⟲ ${escapeHtml(nameOf(report.blockedBy))}</span>` : "";
+  // Says what happened, not just a name: "⟲ Red Reaper" read as one more find (Playtest Run 5, d3-1415-craftseeker).
+  const turned = report.blockedBy ? `<span class="srs-turned">⟲ Turned back · ${escapeHtml(nameOf(report.blockedBy))} border</span>` : "";
   return `
     <div class="srs-card${chips.length > 0 ? " has-finds" : ""}" role="status">
       <span class="srs-drone" aria-hidden="true">${SCOUT_DRONE_ICON}</span>
@@ -130,6 +132,16 @@ const ensure = (id: string): HTMLElement => {
 const hide = (id: string): void => {
   const el = document.getElementById(id);
   if (el) el.style.display = "none";
+};
+
+/**
+ * The report card closed (its ✕, or timed out): for a moment a map tap where it was is swallowed, the same
+ * guard the capture card uses (client-capture-ghost-tap.ts). The ✕ tap's repeat, or a press that landed as
+ * the card went, fell through to the fog under it and started a new plan (Playtest Run 5, d3-1135-spender).
+ */
+const guardClosedCard = (el: HTMLElement, nowMs: number): void => {
+  const rect = el.getBoundingClientRect();
+  noteCaptureCardAutoHidden(rect, nowMs);
 };
 
 let ticker: ReturnType<typeof setInterval> | undefined;
@@ -201,6 +213,8 @@ const renderPill = (state: ClientState, deps: ScoutHudDeps, nowMs: number, cardU
 const renderCard = (state: ClientState, deps: ScoutHudDeps, nowMs: number): boolean => {
   const report = state.scoutDroneReport;
   if (!report || !scoutReportCardVisible(state, nowMs)) {
+    const shown = document.getElementById(CARD_ID);
+    if (report && shown && shown.style.display !== "none" && nowMs - report.at >= SCOUT_REPORT_CARD_MS) guardClosedCard(shown, Date.now());
     hide(CARD_ID);
     return false;
   }
@@ -208,16 +222,10 @@ const renderCard = (state: ClientState, deps: ScoutHudDeps, nowMs: number): bool
   const key = String(report.at);
   if (el.dataset.reportAt !== key) {
     el.dataset.reportAt = key;
-    // Where a chip's finds are: the ones spotted mid-flight (SCOUT_FINDS); else the report's own sites, which
-    // survive a reload or a dropped socket; else the server's main find for the chip it belongs to (review 2026-11-21).
+    // Where a chip's finds are, never the player's own land (client-scout-drone-find-places.ts).
     const mainKind = scoutReportChips(report).find((chip) => chip.find)?.find;
-    const placesFor = (live: ClientState, kind: ScoutFind["kind"], resource?: string): Array<{ x: number; y: number }> => {
-      const spotted = scoutFindPlaces(live, kind, resource);
-      if (spotted.length > 0) return spotted;
-      const sited = scoutSitesFor(report.sites, kind, resource);
-      if (sited.length > 0) return sited;
-      return mainKind && mainKind.kind === kind && mainKind.resource === resource ? [{ x: report.focusX ?? report.targetX, y: report.focusY ?? report.targetY }] : [];
-    };
+    const placesFor = (live: ClientState, kind: ScoutFind["kind"], resource?: string): Array<{ x: number; y: number }> =>
+      scoutReportChipPlaces(live, report, mainKind, kind, resource);
     el.innerHTML = reportCardHtml(report, (id) => state.playerNames.get(id) ?? "another empire", (chip) => Boolean(chip.find && placesFor(state, chip.find.kind, chip.find.resource).length > 0));
     // Each framable chip steps the camera through its finds, one per tap, keeping the card open.
     el.querySelectorAll<HTMLButtonElement>(".srs-chip.is-framable").forEach((chip) => {
@@ -236,6 +244,7 @@ const renderCard = (state: ClientState, deps: ScoutHudDeps, nowMs: number): bool
       };
     });
     const close = (): void => {
+      guardClosedCard(el, Date.now());
       if (current?.state.scoutDroneReport?.at === report.at) current.state.scoutDroneReport = undefined;
       if (current) current.state.scoutFindFocus = undefined;
       current?.deps.rerender();

@@ -18,10 +18,14 @@ const FOUNDING_NAME_DRAFT_KEY = "border-empires:founding-name-draft";
 export const profileNameCountHtml = (id?: string): string =>
   `<span class="profile-name-count"${id ? ` id="${id}"` : ""} data-profile-name-count aria-live="polite">0/${PROFILE_NAME_MAX_LENGTH}</span>`;
 
-/** Updates the count next to `input`. Safe for inputs without a count, or test fakes without a DOM parent. */
-export const syncProfileNameCount = (input: Pick<HTMLInputElement, "value"> & { parentElement?: Element | null }): void => {
+/**
+ * Updates the count next to `input`. Safe for inputs without a count, or test fakes without a DOM parent.
+ * With `emptyHint`, an empty box shows the hint instead of "0/24": in Edit Name the box starts empty
+ * and keeps the current name, and "0/24" read as if saving would wipe it (playtest 2026-11-27).
+ */
+export const syncProfileNameCount = (input: Pick<HTMLInputElement, "value"> & { parentElement?: Element | null }, emptyHint?: string): void => {
   const counter = input.parentElement?.querySelector<HTMLElement>("[data-profile-name-count]");
-  if (counter) counter.textContent = `${input.value.length}/${PROFILE_NAME_MAX_LENGTH}`;
+  if (counter) counter.textContent = emptyHint && input.value.length === 0 ? emptyHint : `${input.value.length}/${PROFILE_NAME_MAX_LENGTH}`;
 };
 
 const selectAll = (input: HTMLInputElement): void => {
@@ -38,7 +42,7 @@ const selectAll = (input: HTMLInputElement): void => {
  * follows focus, so that first mouseup is cancelled and the selection redone;
  * later taps inside the focused box place the caret normally.
  */
-export const bindProfileNameField = (input: HTMLInputElement, options: { onUserInput?: (value: string) => void } = {}): void => {
+export const bindProfileNameField = (input: HTMLInputElement, options: { onUserInput?: (value: string) => void; emptyHint?: string } = {}): void => {
   let reselectOnPointerUp = false;
   input.addEventListener("focus", () => {
     selectAll(input);
@@ -57,10 +61,10 @@ export const bindProfileNameField = (input: HTMLInputElement, options: { onUserI
     reselectOnPointerUp = false;
   });
   input.addEventListener("input", () => {
-    syncProfileNameCount(input);
+    syncProfileNameCount(input, options.emptyHint);
     options.onUserInput?.(input.value);
   });
-  syncProfileNameCount(input);
+  syncProfileNameCount(input, options.emptyHint);
 };
 
 const sessionStore = (): Storage | undefined => {

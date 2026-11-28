@@ -1,10 +1,10 @@
 import type { ClientState } from "../client-state/client-state.js";
 import type { EmpireVisualStyle } from "../client-types.js";
 import { settleCrestSaveFromState } from "../client-profile-edit-crest/client-profile-edit-crest.js";
-
-// A crest refusal (COSMETIC_* ERROR) settles the Edit dialog's wait; client-network.ts routes ERRORs here.
-export { settleCrestSaveFromError } from "../client-profile-edit-crest/client-profile-edit-crest.js";
 import { applyCosmeticsStateMessage, applyInitPlayerCosmetics, applyPlayerStyleCosmetics } from "../client-cosmetics/client-cosmetics.js";
+import { applyProfileChangeAllowance } from "../client-profile-change-allowance/client-profile-change-allowance.js";
+
+export { applyPlayerProfileFields } from "../client-profile-change-allowance/client-profile-change-allowance.js";
 
 export type ApplyPlayerStyleMessageDeps = {
   state: Pick<ClientState, "me" | "meName" | "playerNames" | "playerColors" | "playerVisualStyles" | "playerShieldUntil" | "playerCosmetics" | "ownedCosmetics" | "cosmeticsRequested">;
@@ -82,6 +82,7 @@ export const applyPlayerAppearanceMessage = (msg: Record<string, unknown>, deps:
   }
   if (msg.type !== "COSMETICS_STATE") return false;
   applyCosmeticsStateMessage(deps.state, msg);
+  applyProfileChangeAllowance(msg); // crestChangeUsed
   settleCrestSaveFromState(msg);
   try {
     deps.renderHud();

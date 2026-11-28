@@ -9,7 +9,6 @@ import { crestFor } from "../client-house-crest/client-house-crest.js";
 import { warOpponentIds } from "../client-alliance/client-war-status.js";
 import { latestOwnFight } from "../client-detached-attacks/client-detached-attacks.js";
 import { musterFlagCap } from "@border-empires/shared";
-import { showCaptureAlert } from "../client-alerts/client-alerts.js";
 import { clearAllWaypoints } from "../client-waypoint-action-handlers.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { readyAfcUpgradeCount } from "../client-afc-upgrade-ready/client-afc-upgrade-ready.js";
@@ -27,6 +26,7 @@ import { fallbackOwnerColor, resolveOwnerColor } from "../client-owner-colors/cl
 import { orbHtml, orbInputForState } from "./client-hud-v2-orb.js";
 import { activeLens, installLens, lensMenu, mapOverview, overlaysHtml, setMapOverview } from "./client-hud-v2-overlays.js";
 import { resourceBarHtml } from "./client-hud-v2-resource-bar.js";
+import { isAwaitingFreshPlayer } from "../client-player-freshness/client-player-freshness.js";
 import { applyResourceChip } from "./client-hud-v2-resource-panel.js";
 import { hasRevealedResourceCategory } from "../client-tech-html/client-tech-html.js";
 import { rivalsHtml, seasonClockHtml } from "./client-hud-v2-rivals.js";
@@ -165,7 +165,8 @@ const onLayerClick = (deps: HudV2Deps, event: MouseEvent): void => {
   }
   // Tracker "Queued expansions": stop every queued Expand To, here and on the server.
   if (target.closest("[data-hud-v2-cancel-waypoints]")) {
-    if (clearAllWaypoints({ state: deps.state, sendGameMessage: deps.sendGameMessage })) showCaptureAlert(deps.state, "Expansions cancelled", "Queued expansions stopped.", "success");
+    // The queued expansions leave the tracker and the map; no card.
+    clearAllWaypoints({ state: deps.state, sendGameMessage: deps.sendGameMessage });
     deps.renderHud();
     return;
   }
@@ -281,7 +282,8 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     slotSupply: state.resourceSlots.supply,
     slotDemand: state.resourceSlots.demand,
     integrityPct: state.defensibilityPct,
-    isRevealed: (key) => hasRevealedResourceCategory(key, state.techIds, state.techCatalog)
+    isRevealed: (key) => hasRevealedResourceCategory(key, state.techIds, state.techCatalog),
+    pending: isAwaitingFreshPlayer(state, nowMs)
   }));
   syncTreasury(written.get("bar") ?? "");
   writeRegion("nav", navHtml({
@@ -306,7 +308,7 @@ const renderFast = (state: ClientState, ownerColor: HudV2Deps["ownerColor"], now
     nowMs
   }));
   renderLens(state);
-  writeRegion("orb-slot", orbHtml(orbInputForState(state, nowMs, resolveOwnerColor(state.me, state.playerColors, fallbackOwnerColor)))); // Base colour: the Diplomacy view recolours ownerColor.
+  writeRegion("orb-slot", orbHtml(orbInputForState(state, nowMs, resolveOwnerColor(state.me, state.playerColors, fallbackOwnerColor), trackerScan?.flags))); // Base colour: the Diplomacy view recolours ownerColor.
 };
 
 const renderLens = (state: ClientState): void => writeRegion("overlays", overlaysHtml(activeLens(state.showDiplomacyOverlay, state.showResourceOverlay), lensMenu.open, mapOverview.open));

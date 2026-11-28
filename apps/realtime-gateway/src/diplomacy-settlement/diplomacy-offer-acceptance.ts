@@ -55,7 +55,7 @@ export const createDiplomacyOfferAcceptance = (deps: DiplomacyOfferAcceptanceDep
       deps.socialState.endSettlement(requestId);
       if (recheck.withdraw) deps.withdrawOffer?.(kind, request);
       deps.recordGatewayEvent("info", "gateway_diplomacy_offer_rechecked_refused", { requestId, kind, withdrawn: recheck.withdraw });
-      return { ok: false, code: "DIPLOMACY_OFFER_WITHDRAWN", message: recheck.reason };
+      return { ok: false, code: "DIPLOMACY_OFFER_WITHDRAWN", message: recheck.reason, ...(recheck.withdraw ? { requestId } : {}) };
     }
     const terms = request.terms;
     if (!terms || diplomacyTermsAreEmpty(terms)) {

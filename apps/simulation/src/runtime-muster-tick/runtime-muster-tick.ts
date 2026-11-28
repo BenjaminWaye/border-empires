@@ -2,6 +2,7 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import type { FrontierCommandResult } from "../runtime-frontier-command.js";
 import { MUSTER_BASE_RATE_PER_MIN, MUSTER_STALE_MS, musterFlagCap } from "@border-empires/shared";
+import { noteAwayFlagDraw } from "../welcome-back/welcome-back-ledger.js";
 import type { RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
 import type { MusterAdvanceCooldowns } from "./muster-auto-fire-shared.js";
 import { maybeAdvanceFire } from "./muster-advance-fire.js";
@@ -274,6 +275,7 @@ export const tickMuster = (input: MusterTickInput): void => {
       let tileDeltaQueued = false;
       if (inflow > 0.0001) {
         player.manpower -= inflow;
+        noteAwayFlagDraw(player, inflow, input.nowMs);
         currentTile = {
           ...tile,
           muster: {

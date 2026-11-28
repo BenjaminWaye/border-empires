@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AllianceRequest, TruceRequest } from "../client-types.js";
 import { closeDiplomacyTradeScreen } from "../client-diplomacy-trade/client-diplomacy-trade.js";
@@ -17,7 +17,8 @@ const truce: TruceRequest = {
   terms: { give: { gold: 10 }, ask: { gold: 0 } }
 };
 const alliance: AllianceRequest = { id: "alliance-1", fromPlayerId: "ai-10", toPlayerId: "me", createdAt: 1_000 };
-const state = { gold: 500, incomingTruceRequests: [truce], incomingAllianceRequests: [alliance], activeTruces: [] };
+// Fresh per test: sending a counter drops the offer it answers from the state.
+let state = { gold: 500, incomingTruceRequests: [truce], incomingAllianceRequests: [alliance], activeTruces: [] };
 
 const openCounter = (kind: "truce" | "alliance", requestId: string) => {
   const sendGameMessage = vi.fn(() => true);
@@ -28,6 +29,9 @@ const overlay = (): HTMLElement => document.querySelector<HTMLElement>(".diploma
 const field = (attr: string): HTMLInputElement => overlay().querySelector<HTMLInputElement>(`[${attr}]`)!;
 
 describe("counter-offers", () => {
+  beforeEach(() => {
+    state = { gold: 500, incomingTruceRequests: [truce], incomingAllianceRequests: [alliance], activeTruces: [] };
+  });
   afterEach(() => closeDiplomacyTradeScreen());
 
   it("opens the trade screen with the offer's terms seen from the player's side", () => {
@@ -59,6 +63,8 @@ describe("counter-offers", () => {
       },
       expect.any(String)
     );
+    // The countered offer leaves the dock and Diplomacy at once (playtest 2026-11-27).
+    expect(state.incomingAllianceRequests).toEqual([]);
   });
 
   it("does nothing for an offer that has already gone", () => {

@@ -10,6 +10,7 @@ import { emblemFaceHtml, emblemInitial } from "../client-house-crest/client-hous
 import type { ActiveTruceView, AllianceRequest, LeaderboardOverallEntry, TruceRequest } from "../client-types.js";
 import { socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import { offeredTruceEndsAt } from "../client-diplomacy-trade/client-treaty-requests.js";
+import { acceptTruceLabel, offeredTruceLength } from "../client-truce-offer-length/client-truce-offer-length.js";
 import { isTruceEndingSoon, truceCanExtend, truceTimeLeftLabel, trucesEndingSoon } from "../client-truce-ending/client-truce-ending.js";
 import { allyStatusLabel, incomingAllianceLabel, sentAllianceLabel, type FealtyLookup } from "../client-fealty/client-fealty.js";
 
@@ -28,7 +29,7 @@ export type DiplomacyListInput = {
   /** Who is at war with you now (warOpponentIds, the same signal as the profile's war state). */
   warPlayerIds?: ReadonlySet<string>;
   nameOf: (playerId: string) => string;
-  /** Your standing with each empire by size (client-fealty.ts): unequal alliances read as fealty. Absent: "Ally"/"Alliance". */
+  /** Your recorded standing with each empire (client-fealty-recorded.ts): alliances and offers recorded as fealty read so. Absent: "Ally"/"Alliance". */
   fealtyWith?: FealtyLookup;
   colorOf: (playerId: string) => string | undefined;
   /** A House's crest (cosmetic); its initial shows when unset. */
@@ -79,7 +80,7 @@ const crest = (name: string, id: string, input: Pick<DiplomacyListInput, "colorO
 
 // A new truce runs from its offer (offeredTruceEndsAt), so it shows the time it has left, not the hours
 // offered: "Truce 12h" ended 2h after it was accepted (playtest 2026-11-26). Extensions add their hours.
-// An alliance row says which way fealty runs, by your standing with the other House (client-fealty.ts).
+// An alliance row says which way fealty runs, as recorded when the offer was sent (client-fealty-recorded.ts).
 const offerWhat = (kind: "alliance" | "truce", r: AllianceRequest | TruceRequest, input: DiplomacyListInput, incoming: boolean): string => {
   if (kind === "alliance") {
     const standing = input.fealtyWith?.(incoming ? r.fromPlayerId : r.toPlayerId) ?? "ALLIANCE";
@@ -94,9 +95,11 @@ const requestRow = (kind: "alliance" | "truce", r: AllianceRequest | TruceReques
   const endsAt = kind === "truce" ? offeredTruceEndsAt(r as TruceRequest) : undefined;
   const what = `${offerWhat(kind, r, input, true)}${endsAt === undefined ? "" : ` · ${socialRemainingLabel(endsAt, input.nowMs)} left`}`;
   const terms = r.terms ? describeDiplomacyTermsForRecipient(r.terms, name) : "";
+  // Accept says the truce you'd get now: "Accept 22h truce" for a 24h offer sent 2h ago.
+  const accept = kind === "truce" ? acceptTruceLabel(offeredTruceLength(r as TruceRequest, input.nowMs)) : "Accept";
   return `<div class="v2d-req">${crest(name, r.fromPlayerId, input)}
     <span class="v2d-req-text"><b>${esc(name)}</b><span>${what}${terms ? ` · ${esc(terms)}` : ""}</span></span>
-    <button type="button" class="v2s-btn v2s-btn-primary v2s-btn-sm" data-v2-dip-accept="${kind}" data-request-id="${esc(r.id)}">Accept</button>
+    <button type="button" class="v2s-btn v2s-btn-primary v2s-btn-sm" data-v2-dip-accept="${kind}" data-request-id="${esc(r.id)}">${esc(accept)}</button>
     <button type="button" class="v2s-btn v2s-btn-sm" data-v2-dip-counter="${kind}" data-request-id="${esc(r.id)}">Counter</button>
     <button type="button" class="v2s-btn v2s-btn-sm v2s-btn-ghost" data-v2-dip-reject="${kind}" data-request-id="${esc(r.id)}">Decline</button>
   </div>`;

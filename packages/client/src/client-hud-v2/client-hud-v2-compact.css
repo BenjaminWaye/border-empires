@@ -68,6 +68,8 @@ body.hud-v2-compact .hud-v2-bar .hud-v2-chip-label {
 }
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-icon { display: block; width: 15px; height: 15px; }
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-summary { display: block; }
+/* "free"/"short" under the number on phones: it widened every slot chip inline. */
+body.hud-v2-compact .hud-v2-bar .hud-v2-chip-unit { display: block; margin-top: 1px; font-size: 8px; line-height: 1; }
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-short { display: inline; font-size: 0.9em; }
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-icon + .hud-v2-chip-name,
 body.hud-v2-compact .hud-v2-bar .hud-v2-chip-exact {
@@ -178,6 +180,8 @@ body.hud-v2-compact .hud-v2-orb-label,
 body.hud-v2-compact .hud-v2-orb-refill { display: none; }
 /* Full / over cap stays visible inside the fixed 84px orb (no countdown exists in that state). */
 body.hud-v2-compact .hud-v2-orb-refill.hud-v2-orb-refill-state { display: block; margin-top: 1px; font-size: 9px; }
+/* The flag drain stays visible on phones, smaller. */
+body.hud-v2-compact .hud-v2-orb-drain { margin-top: 0; font-size: 8px; }
 body.hud-v2-compact .hud-v2-orb-value { font-size: 18px; }
 body.hud-v2-compact .hud-v2-orb-cap { font-size: 10px; }
 

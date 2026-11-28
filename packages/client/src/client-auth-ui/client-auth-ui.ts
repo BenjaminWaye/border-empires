@@ -6,6 +6,8 @@ import { pickLoginLoreQuote, pageLoginLoreQuoteSeed, renderLoreQuoteFigure } fro
 import { describeMapPrep } from "../client-map-prep/client-map-prep.js";
 import { PROFILE_NAME_MAX_LENGTH, readFoundingNameDraft, syncProfileNameCount } from "../client-profile-name-field/client-profile-name-field.js";
 import { sectorWaitlistButtonLabel } from "../client-sector-waitlist/client-sector-waitlist.js";
+import { freeEmpireColors, type EmpireColorsInUse } from "@border-empires/shared";
+import { colorsInUseFor, markClashingSwatches, syncColorClashNote } from "../client-color-clash/client-color-clash.js";
 
 export const setAuthStatus = (
   state: Pick<ClientState, "authError">,
@@ -21,40 +23,56 @@ export const setAuthStatus = (
 // Populates a row of colour-swatch buttons from server-suggested colours and
 // marks whichever one matches `activeColor` as selected. Shared by the
 // onboarding profile-setup panel and the Settings "Edit Name & Colour"
-// overlay so both pickers behave identically.
+// overlay so both pickers behave identically. Swatches the gateway would
+// refuse are greyed out. When the server suggested none (an older gateway
+// on a full map), the swatches are drawn from the same shared free colours
+// rather than left on stale defaults; spare buttons are hidden.
 export const syncColorSwatchButtons = (
   buttons: NodeListOf<HTMLButtonElement> | HTMLButtonElement[],
   suggestedColors: string[],
-  activeColor: string
+  activeColor: string,
+  inUse: EmpireColorsInUse = { exact: [], empires: [] }
 ): void => {
-  if (suggestedColors.length) {
-    buttons.forEach((btn, i) => {
-      const c = suggestedColors[i];
-      if (c) {
-        btn.dataset.color = c;
-        btn.style.setProperty("--swatch", c);
-      }
-    });
-  }
+  const colors = suggestedColors.length ? suggestedColors : freeEmpireColors(buttons.length, inUse);
+  buttons.forEach((btn, i) => {
+    const c = colors[i];
+    btn.hidden = !c;
+    if (c) {
+      btn.dataset.color = c;
+      btn.style.setProperty("--swatch", c);
+    } else {
+      delete btn.dataset.color;
+    }
+  });
   const normalizedActive = activeColor.toLowerCase();
   buttons.forEach((btn) => {
     btn.dataset.selected = btn.dataset.color?.toLowerCase() === normalizedActive ? "true" : "false";
   });
+  markClashingSwatches(buttons, inUse);
 };
 
 export const syncAuthPanelState = (
-  state: Pick<ClientState, "profileSetupRequired" | "suggestedColors">,
+  state: Pick<ClientState, "profileSetupRequired" | "suggestedColors" | "me" | "playerColors" | "playerNames">,
   deps: {
     authEmailLinkSentTo: string;
     authPanelEl: HTMLElement;
     authEmailSentAddressEl: HTMLElement;
     authProfileColorEl: HTMLInputElement;
     authColorPresetButtons: NodeListOf<HTMLButtonElement>;
+    /** "Too close to X's colour" note under the custom colour; absent in tests without the panel. */
+    authColorClashEl?: HTMLElement | null;
   }
 ): void => {
   deps.authPanelEl.dataset.mode = state.profileSetupRequired ? "setup" : deps.authEmailLinkSentTo ? "sent" : "login";
   deps.authEmailSentAddressEl.textContent = deps.authEmailLinkSentTo;
-  syncColorSwatchButtons(deps.authColorPresetButtons, state.suggestedColors, deps.authProfileColorEl.value);
+  const inUse = colorsInUseFor(state);
+  syncColorSwatchButtons(deps.authColorPresetButtons, state.suggestedColors, deps.authProfileColorEl.value, inUse);
+  // One tap on the suggestion applies it (playtest 2026-11-28: players typed "Try: #..." in by hand).
+  const applySuggestion = (hex: string): void => {
+    deps.authProfileColorEl.value = hex;
+    syncAuthPanelState(state, deps);
+  };
+  syncColorClashNote(deps.authColorClashEl, deps.authProfileColorEl.value, inUse, state.playerColors.get(state.me), applySuggestion);
 };
 
 export const syncAuthOverlay = (

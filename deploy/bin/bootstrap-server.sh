@@ -7,7 +7,6 @@
 #     BE_ENV=staging BE_HOSTNAME=api-staging.borderempires.com \
 #     ADMIN_PUBKEY="$(cat ~/.ssh/id_ed25519.pub)" \
 #     CI_PUBKEY="$(cat ~/.ssh/be_hetzner_deploy.pub)" \
-#     BACKUP_BUCKET=be-backups-staging \
 #     bash /root/deploy/bin/bootstrap-server.sh
 #
 # Required: BE_ENV (staging|production|hosted), BE_HOSTNAME, and for staging
@@ -20,6 +19,7 @@
 # is deleted when its contest is over. It does not get fail2ban either (there
 # is no SSH to protect).
 # Optional: BACKUP_BUCKET (enables B2 upload; also place rclone.conf, see below),
+#           BACKUP_TIMER=on|off (hourly backup timer; default off, on for hosted),
 #           GITHUB_REPO (default BenjaminWaye/border-empires),
 #           IMAGE_REPO (default ghcr.io/benjaminwaye/border-empires-combined),
 #           LOGS_PUBKEY (read-only key for scripts/ops/backend-logs.sh).
@@ -59,7 +59,10 @@ fi
 systemctl enable --now docker
 
 # --- deploy user + keys ---
-id deploy >/dev/null 2>&1 || adduser --disabled-password --gecos "" deploy
+# useradd, not adduser: adduser runs chfn, whose PAM account check for root fails
+# while root's password is expired, as it is on a Hetzner server created without an
+# SSH key (every hosted sector server; third test sector, 2026-11-27).
+id deploy >/dev/null 2>&1 || useradd --create-home --shell /bin/bash --user-group deploy
 usermod -aG docker deploy
 install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
 if [ "$BE_ENV" = hosted ]; then
@@ -139,7 +142,16 @@ chown deploy:deploy /etc/border-empires/host.conf
 install -m 644 "${SRC_DIR}/systemd/border-empires-backup.service" /etc/systemd/system/
 install -m 644 "${SRC_DIR}/systemd/border-empires-backup.timer" /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable --now border-empires-backup.timer
+# The timer is only switched on when asked (BACKUP_TIMER=on), so re-running this
+# script never turns backups on by accident. Switch-on steps: docs/agents/deploys.md "Backups".
+# Hosted sector servers keep their earlier default (on, local copies only).
+default_timer=off
+[ "$BE_ENV" = hosted ] && default_timer=on
+if [ "${BACKUP_TIMER:-$default_timer}" = on ]; then
+  systemctl enable --now border-empires-backup.timer
+else
+  echo "backup timer installed; left as it was ($(systemctl is-enabled border-empires-backup.timer 2>/dev/null || echo disabled)). To switch it on: BACKUP_TIMER=on, or systemctl enable --now border-empires-backup.timer"
+fi
 
 echo "bootstrap complete for ${BE_ENV} (${BE_HOSTNAME})."
 echo "Next: place /etc/border-empires/rclone.conf (B2 remote 'b2', chmod 600, owner deploy) if BACKUP_BUCKET is set;"

@@ -13,6 +13,7 @@ import { grantOverflowManpower, manpowerCeiling, settleWaystationManpowerOverflo
 import * as wonderEffects from "../runtime-natural-wonders.js";
 import { AFC_LEVY_SOURCE_LABEL, afcAlliedLevyShare } from "../afc-specializations/afc-coalition.js";
 import { multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
+import { noteAwayManpowerRefill } from "../welcome-back/welcome-back-ledger.js";
 
 export interface RuntimeManpowerEconomyContext {
   players?: ReadonlyMap<string, RuntimePlayer>;
@@ -185,6 +186,8 @@ export function refreshManpowerOnlyForPlayer(
     return;
   }
   const { manpower, banked } = accrueManpower(player, cap, playerManpowerRegenPerMinute(ctx, player), nowMs);
+  // accrueManpower only raises the pool when a refill lands (see its doc).
+  noteAwayManpowerRefill(player, manpower - player.manpower, nowMs);
   player.manpower = manpower;
   if (banked > MANPOWER_EPSILON) player.manpowerBanked = banked;
   else delete player.manpowerBanked;

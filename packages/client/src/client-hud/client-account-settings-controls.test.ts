@@ -55,3 +55,14 @@ describe("Log Out button", () => {
     expect(signOut).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("Settings hub Save your empire button", () => {
+  it("opens the guest save panel", () => {
+    vi.mocked(openGuestSavePanel).mockClear();
+    const root = document.createElement("div");
+    root.innerHTML = `<button type="button" data-settings-guest-save>Save your empire</button>`;
+    bindAccountSettingsControls(root, null, {} as never, "ws://x", () => {});
+    root.querySelector<HTMLButtonElement>("[data-settings-guest-save]")!.click();
+    expect(openGuestSavePanel).toHaveBeenCalledWith("badge");
+  });
+});

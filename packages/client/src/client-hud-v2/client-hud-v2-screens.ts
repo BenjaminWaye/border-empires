@@ -6,7 +6,6 @@
 import { crestFor } from "../client-house-crest/client-house-crest.js";
 import { profileCrestClick, profileCrestFields } from "./client-hud-v2-profile-crest.js";
 import { counterOfferScreenInput } from "../client-alliance/client-alliance-counter-offer.js";
-import { showCaptureAlert } from "../client-alerts/client-alerts.js";
 import { diplomacyTradeDepsFor, openDiplomacyTradeScreen } from "../client-diplomacy-trade/client-diplomacy-trade.js";
 import { battleClick, battleEscape, renderBattle } from "./client-hud-v2-battle-runtime.js";
 import { chronicleTabClick, loadChronicleTab, renderChronicle } from "./client-hud-v2-chronicle-runtime.js";
@@ -41,7 +40,8 @@ import { townClick } from "./client-hud-v2-town-click.js";
 import { renderTownsScreen, townsClick } from "./client-hud-v2-towns-runtime.js";
 import { refreshMetPlayerIds } from "../client-alliance/client-met-players.js";
 import { houseChargesWithLiveNames } from "../client-house-charges/client-house-charges-live-names.js";
-import { allianceOfferedTitle, allyStatusLabel, fealtyLookupFor, type FealtyStanding } from "../client-fealty/client-fealty.js";
+import { allyStatusLabel } from "../client-fealty/client-fealty.js";
+import { recordedFealtyLookupFor } from "../client-fealty/client-fealty-recorded.js";
 import { ownPublicProfileShareView } from "../client-public-house/client-public-house-share.js";
 import { getGuestSave } from "../client-guest-save/client-guest-save.js";
 
@@ -206,7 +206,7 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
       leaderboard: state.leaderboard.overall,
       warPlayerIds: warOpponentIds(state, Date.now()),
       nameOf: (id) => nameOf(deps, id),
-      fealtyWith: fealtyLookupFor(state),
+      fealtyWith: recordedFealtyLookupFor(state),
       colorOf: (id) => deps.ownerColor(id),
       crestOf: (id) => crestFor(state, id),
       nowMs: Date.now()
@@ -221,7 +221,7 @@ const renderDiplomacy = (deps: HudV2Deps): void => {
     forgetWritten("v2d-pact");
     hostTradeView(deps, target);
   }
-  const fealty = fealtyLookupFor(state)(target);
+  const fealty = recordedFealtyLookupFor(state)(target);
   const allyLabel = fealty === "ALLIANCE" ? {} : { allyLabel: allyStatusLabel(fealty) };
   writeHtml("v2d-pact", dealPactHtml({ targetId: target, allies: state.allies, activeTruces: state.activeTruces, activeAllianceBreaks: state.activeAllianceBreaks, nowMs: Date.now(), ...allyLabel }));
 };
@@ -236,32 +236,17 @@ const dealFacts = (deps: HudV2Deps, target: string): string => {
   const { state } = deps;
   const tilesOf = (id: string): number | undefined =>
     (state.leaderboard.overall.find((e) => e.id === id) ?? (id === state.me ? state.leaderboard.selfOverall : undefined))?.tiles;
-  const stance = empireStance(target, { allies: state.allies, activeTruces: state.activeTruces, nowMs: Date.now(), warPlayerIds: warOpponentIds(state, Date.now()), fealtyWith: fealtyLookupFor(state) });
+  const stance = empireStance(target, { allies: state.allies, activeTruces: state.activeTruces, nowMs: Date.now(), warPlayerIds: warOpponentIds(state, Date.now()), fealtyWith: recordedFealtyLookupFor(state) });
   const theirs = tilesOf(target), mine = tilesOf(state.me);
   return dealFactsText(stance.kind === "met" ? "" : stance.label, theirs, mine);
-};
-
-/** The alert title for a sent offer; undefined for anything else the deal view sends (e.g. its stance lookup on open). */
-export const offerSentTitle = (payload: unknown, extendsTruce = false, fealty: FealtyStanding = "ALLIANCE"): string | undefined => {
-  if (typeof payload !== "object" || payload === null || !("type" in payload)) return undefined;
-  if (payload.type === "RESOURCE_TRADE_REQUEST") return "Resource trade offered";
-  if (payload.type === "ALLIANCE_REQUEST") return allianceOfferedTitle(fealty);
-  if (payload.type !== "TRUCE_REQUEST") return undefined;
-  const hours = "durationHours" in payload ? payload.durationHours : undefined;
-  return `${extendsTruce ? "Truce extension" : "Truce"} offered${typeof hours === "number" ? ` · ${hours}h` : ""}`;
 };
 
 /** Opens the existing trade view and moves it into the deal's middle column; closing it returns to the list. */
 const hostTradeView = (deps: HudV2Deps, targetId: string, input?: Parameters<typeof openDiplomacyTradeScreen>[0]): void => {
   const { state } = deps;
   const offer = input ?? { targetName: nameOf(deps, targetId), targetPlayerId: targetId, kind: state.resourceTradeHoldings ? "trade" as const : "truce" as const, durationHours: 24 as const };
-  // The deal view closes on send; say the offer went out (the reply replaces this alert, above the screen).
-  const send = (payload: unknown, notSignedInMessage: string): boolean => {
-    const sent = deps.sendGameMessage(payload, notSignedInMessage);
-    const title = sent ? offerSentTitle(payload, state.activeTruces.some((t) => t.otherPlayerId === targetId && t.endsAt > Date.now()), fealtyLookupFor(state)(targetId)) : undefined;
-    if (title) showCaptureAlert(state, title, `Waiting for ${offer.targetName}`, "success");
-    return sent;
-  };
+  // The deal view closes on send, back to the list, where the offer shows under Sent / "offer sent"; no card.
+  const send = (payload: unknown, notSignedInMessage: string): boolean => deps.sendGameMessage(payload, notSignedInMessage);
   openDiplomacyTradeScreen(offer, diplomacyTradeDepsFor(state, send));
   const host = document.getElementById("v2s-dip-host");
   const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay");
@@ -280,7 +265,7 @@ const hostTradeView = (deps: HudV2Deps, targetId: string, input?: Parameters<typ
 
 const profileRelation = (state: HudV2Deps["state"], id: string): ProfileRelation => {
   if (id === state.me) return { kind: "self" };
-  if (state.allies.includes(id)) return { kind: "ally", label: allyStatusLabel(fealtyLookupFor(state)(id)) };
+  if (state.allies.includes(id)) return { kind: "ally", label: allyStatusLabel(recordedFealtyLookupFor(state)(id)) };
   const truce = state.activeTruces.find((t) => t.otherPlayerId === id && t.endsAt > Date.now());
   if (truce) return { kind: "truce", endsAt: truce.endsAt };
   return warOpponentIds(state, Date.now()).has(id) ? { kind: "war" } : { kind: "none" };

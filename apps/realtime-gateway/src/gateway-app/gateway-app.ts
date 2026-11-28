@@ -4,7 +4,7 @@ import { createRevealMapRequestHandler } from "../reveal-map-request/reveal-map-
 import { createCommandDiagnosticJournal } from "../player-sync-diagnostics/command-diagnostic-journal.js";
 import { groupAttackTraces } from "./group-attack-traces.js";
 import { createAllianceSimulationSync } from "../alliance-simulation-sync/alliance-simulation-sync.js";
-import { seedAiColors } from "./seed-ai-colors.js";
+import { humanColorsForAiSeeding, seedAiColors, storedAiColors } from "./seed-ai-colors.js";
 import { PerformanceObserver } from "node:perf_hooks";
 
 import websocket from "@fastify/websocket";
@@ -33,7 +33,7 @@ import { registerGatewayHttpRoutes } from "../http-routes/http-routes.js";
 import { buildServerStartingErrorPayload, createSimBacklogStatusPoller } from "../sim-backlog-status/sim-backlog-status.js";
 import { createGatewayMetrics } from "../metrics/metrics.js";
 import { createGatewayActivityCalibrationStore } from "../activity-calibration-store/activity-calibration-store-factory.js";
-import { pickSuggestedPalette } from "../player-color-allocation/player-color-allocation.js";
+import { applyInitColorFields } from "../player-color-allocation/init-color-fields.js";
 import { createPlayerSubscriptions } from "../player-subscriptions/player-subscriptions.js";
 import { createPlayerProfileOverrides } from "../player-profile-overrides.js";
 import { createGatewayPlayerProfileStore } from "../player-profile-store-factory/player-profile-store-factory.js";
@@ -79,7 +79,7 @@ import { retryStartup } from "../startup-retry.js";
 import { resolveInitialState } from "../initial-state/initial-state.js";
 import { createFullVisibilityReplacementPayloadCache } from "../full-visibility-replacement-payload-cache/full-visibility-replacement-payload-cache.js";
 import { createRevealMapChunkCache, type RevealMapPayloadSet } from "../reveal-map-chunk-cache/reveal-map-chunk-cache.js";
-import { buildInitMessage, INIT_RECOVERY_TIMEOUT_MS } from "../reconnect-recovery/reconnect-recovery.js"; import { handleJoinSeasonMessage } from "./handle-join-season-message.js"; import { joinSeasonReservationDeps } from "../season-full-rejection/reserve-next-contest-place.js"; import { handleSetTileColorMessage } from "./handle-set-tile-color-message.js"; import { handleSetHintStateMessage, hintStateInitFields } from "./handle-set-hint-state-message.js"; import { handleSetProfileMessage } from "./handle-set-profile-message.js"; import { handleSetEmailNotificationPrefsMessage, emailNotificationPrefsInitFields } from "./handle-set-email-notification-prefs-message.js"; import { handleRequestPersonalActivityMessage, handleAcknowledgeActivitySeenMessage } from "./handle-activity-timeline-messages.js"; import { handleRequestWorldPulseMessage } from "./handle-world-pulse-message.js"; import { createWorldPulseActivitySource } from "../activity-api/world-pulse-activity-source.js";
+import { buildInitMessage, INIT_RECOVERY_TIMEOUT_MS } from "../reconnect-recovery/reconnect-recovery.js"; import { handleJoinSeasonMessage } from "./handle-join-season-message.js"; import { joinSeasonReservationDeps } from "../season-full-rejection/reserve-next-contest-place.js"; import { handleSetTileColorMessage } from "./handle-set-tile-color-message.js"; import { handleSetHintStateMessage } from "./handle-set-hint-state-message.js"; import { applyInitProfileFields } from "./init-profile-fields.js"; import { handleSetProfileMessage } from "./handle-set-profile-message.js"; import { handleSetEmailNotificationPrefsMessage } from "./handle-set-email-notification-prefs-message.js"; import { handleRequestPersonalActivityMessage, handleAcknowledgeActivitySeenMessage } from "./handle-activity-timeline-messages.js"; import { handleRequestWorldPulseMessage } from "./handle-world-pulse-message.js"; import { createWorldPulseActivitySource } from "../activity-api/world-pulse-activity-source.js";
 import { createSimulationClient, type SimulationClientEvent } from "../sim-client/sim-client.js";
 import { selectSocketsForEvent, selectSocketsForTileDeltaBatchByPlayer } from "../socket-routing/socket-routing.js";
 import { createGatewaySocialStore } from "../social-store-factory.js";
@@ -705,7 +705,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   await seedAiColors(seededAiPlayerIds, async (id, color) => {
     await profileStore.setTileColor(id, color);
     profileOverrides.upsert(id, { tileColor: color });
-  });
+  }, undefined, await humanColorsForAiSeeding(seededAiPlayerIds, { profileStore, profileOverrides }), await storedAiColors(seededAiPlayerIds, profileStore));
 
   // -- Phase 4: buildTakenColorSet helper (see player-color-allocation/build-taken-color-set.ts)
   const buildTakenColorSet = (excludePlayerId: string): Promise<Set<string>> => buildTakenColorSetFrom(excludePlayerId, { profileStore, profileOverrides });
@@ -876,7 +876,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const ignoredLegacyMessageTypes = new Set<string>(
     supportedClientMessageTypes.filter((messageType) => !migratedDurableCommandTypes.has(messageType))
   );
-  const accountCosmetics = await createAccountCosmeticsGatewayIntegration(commandStoreFactoryOptions, { preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), log: (message, detail) => app.log.warn(detail, message) });
+  const accountCosmetics = await createAccountCosmeticsGatewayIntegration(commandStoreFactoryOptions, { preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), log: (message, detail) => app.log.warn(detail, message), getCurrentSeasonId: async () => { try { return (await simulationClient.getCurrentSeasonSummary()).seasonId; } catch { return undefined; } } });
   const seasonLobby = createSeasonLobbyGatewayIntegration({ preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), profileOverrides, profileStore, invalidateProfileCache, fallbackName: (playerId) => socialRegistrationNameFor(playerId, playerId), getTitle: (playerId) => accountCosmetics.titleOf(playerId) }); const getWorldPulseActivity = createWorldPulseActivitySource({ getActivityDashboard: () => simulationClient.getActivityDashboard(), getSeasonPowerScore: async () => { const season = await simulationClient.getCurrentSeasonSummary(); return { seasonId: season.seasonId, powerScore: (await hydrateCurrentSeasonSummaryDisplayNames(season, profileStore)).overall }; }, getSocialSnapshot: () => socialStore.loadSnapshot(), growthBaselineStore });
   const nextContest = createGatewayNextContest({
     simulationClient, store: sectorWaitlistStore, singleContest: options.hostedSector !== undefined, recordGatewayEvent: (level, event, payload) => recordGatewayEvent(level, event, payload),
@@ -2041,7 +2041,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 simulationSeedProfile,
                 legacySnapshotBootstrap,
                 profileOverrides,
-                socialState, session.canToggleFog, needsSeasonJoin, seasonPending, seasonPendingScheduledStartAt, seasonPendingRoster, dukeAuthUids, accountCosmetics.shownSelections(), { ...(seasonStartedAt !== undefined ? { seasonStartedAt } : {}), singleContest: options.hostedSector !== undefined }
+                socialState, session.canToggleFog, needsSeasonJoin, seasonPending, seasonPendingScheduledStartAt, seasonPendingRoster, dukeAuthUids, accountCosmetics.shownSelectionFor, { ...(seasonStartedAt !== undefined ? { seasonStartedAt } : {}), singleContest: options.hostedSector !== undefined }
               );
               recordGatewayAuthStepTiming("build_init_message", Date.now() - buildInitMessageStartedAt, {
                 playerId: playerIdentity.playerId,
@@ -2057,15 +2057,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 playerId: playerIdentity.playerId,
                 channel
               });
-              (initMessage.player as Record<string, unknown>).suggestedColors = pickSuggestedPalette(6, takenColorSet);
+              applyInitColorFields(initMessage.player as Record<string, unknown>, takenColorSet);
               if ((initMessage.player as { profileNeedsSetup?: boolean }).profileNeedsSetup) (initMessage.player as Record<string, unknown>).suggestedName = suggestDefaultDisplayName(providerDisplayName(playerIdentity), await buildTakenNameSet(playerIdentity.playerId));
               // Hint/tutorial state now lives on the player profile row (see
               // player-profile-store.ts) instead of client-only localStorage --
               // injected the same way suggestedColors is above, rather than
               // threading it through buildGatewayInitPayload's own signature.
               const hintStateProfile = await cachedProfileGet(playerIdentity.playerId); // cached, never profileStore.get: sync node:sqlite on a sim-shared DB blocks the event loop up to busy_timeout (5s) and tripped the 30s watchdog
-              Object.assign(initMessage.player as Record<string, unknown>, hintStateInitFields(hintStateProfile));
-              (initMessage.player as Record<string, unknown>).emailNotificationPrefs = emailNotificationPrefsInitFields(hintStateProfile?.emailNotificationPrefs); (initMessage as Record<string, unknown>).activitySeen = { lastActivitySeenAt: hintStateProfile?.lastActivitySeenAt ?? 0, lastActivitySeenSeasonId: hintStateProfile?.lastActivitySeenSeasonId ?? "" };
+              applyInitProfileFields(initMessage, hintStateProfile); // hint/guide state, email prefs, Activity seen mark, name/colour change allowance (init-profile-fields.ts)
               Object.assign(initMessage as Record<string, unknown>, nextContest.initFields(playerIdentity.playerId));
               const initInitialTileCount = initMessage.initialState?.tiles?.length ?? 0;
               authTrace.endStep("build_init");
@@ -2222,7 +2221,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
           if (message.type === "JOIN_SEASON") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleJoinSeasonMessage({ onSpawned: playerFunnel.onSpawned, playerId: session.playerId, isGuest: session.isGuest === true, rallyAnchor: session.rallyAnchor, simulationClient, recordGatewayEvent, sendJson, socket, seasonFullErrorPayload, seasonPendingErrorPayload, checkIntoLobby: seasonLobby.checkIntoLobby, broadcastLobbyUpdate: seasonLobby.broadcastLobbyUpdate, resolveSpawnTile: activeRallyAnchorForOwner, ...joinSeasonReservationDeps(options.hostedSector !== undefined, { store: sectorWaitlistStore, getCurrentSeason: () => simulationClient.getCurrentSeasonSummary() }) }); return; } if (message.type === "SET_COUNTRY_FLAG") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await seasonLobby.setCountryFlag(session.playerId, message.countryFlag, (payload) => sendJson(socket, payload)); return; }
           if (message.type === "SET_COSMETIC" || message.type === "REQUEST_COSMETICS") { await accountCosmetics.handleClientMessage(session.playerId, message, (payload) => sendJson(socket, payload)); return; }
-          if (message.type === "SET_TILE_COLOR") { await handleSetTileColorMessage({ playerId: session.playerId, color: message.color, canToggleFog: session.canToggleFog, buildTakenColorSet, incrementColorCollisionRejectedTotal: () => gatewayMetrics.incrementColorCollisionRejectedTotal(), profileStore, invalidateProfileCache, profileOverrides, sendJson: (payload) => sendJson(socket, payload), allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (targetSocket, targetPayload) => queueOrSendSessionPayload(targetSocket as import("ws").WebSocket, targetPayload) }); return; }
+          if (message.type === "SET_TILE_COLOR") { await handleSetTileColorMessage({ playerId: session.playerId, color: message.color, canToggleFog: session.canToggleFog, buildTakenColorSet, incrementColorCollisionRejectedTotal: () => gatewayMetrics.incrementColorCollisionRejectedTotal(), profileStore, invalidateProfileCache, profileOverrides, getCurrentSeasonId: async () => { try { return (await simulationClient.getCurrentSeasonSummary()).seasonId; } catch { return undefined; } }, sendJson: (payload) => sendJson(socket, payload), allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (targetSocket, targetPayload) => queueOrSendSessionPayload(targetSocket as import("ws").WebSocket, targetPayload) }); return; }
           if (message.type === "SET_HINT_STATE") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleSetHintStateMessage({ playerId: session.playerId, dismissedHints: message.dismissedHints, hintsMuted: message.hintsMuted, onboardingChecklistCompleted: message.onboardingChecklistCompleted, musterUnlockedSeasonId: message.musterUnlockedSeasonId, dashboardQuietedSeasonId: message.dashboardQuietedSeasonId, guideStatus: message.guideStatus, guideSteps: message.guideSteps, guideSeasonId: message.guideSeasonId, metPlayerIds: message.metPlayerIds, metPlayersSeasonId: message.metPlayersSeasonId, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; }
 
           if (message.type === "SET_PROFILE") { await handleSetProfileMessage({ playerId: session.playerId, displayName: message.displayName, color: message.color, canToggleFog: session.canToggleFog, buildTakenColorSet, incrementColorCollisionRejectedTotal: () => gatewayMetrics.incrementColorCollisionRejectedTotal(), buildTakenNameSet, incrementDisplayNameCollisionRejectedTotal: () => gatewayMetrics.incrementDisplayNameCollisionRejectedTotal(), runExclusive: runProfileExclusive, profileStore, invalidateProfileCache, profileOverrides, getCurrentSeasonId: async () => { try { return (await simulationClient.getCurrentSeasonSummary()).seasonId; } catch { return undefined; } }, renamePlayer: socialState.renamePlayer, sendJson: (payload) => sendJson(socket, payload), allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (targetSocket, targetPayload) => queueOrSendSessionPayload(targetSocket as import("ws").WebSocket, targetPayload), preSerializeBroadcast }); return; }

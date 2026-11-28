@@ -204,6 +204,8 @@ const styles = `
 #${ROOT_ID} .tg-card, #${ROOT_ID} .tg-launcher { pointer-events: auto; }
 /* Above the side panel (25, or 47 over a HUD v2 screen) and HUD v2 screens (44); below Settings (49) and info cards (71+). */
 #${ROOT_ID}.${RAISED_CLASS} { z-index: 48; }
+/* An alert is up: the card can't paint under it (tutorial-guide-alert-yield.ts), so it steps aside until it closes. */
+#${ROOT_ID}.tg-yield-alert > * { visibility: hidden !important; pointer-events: none !important; }
 /* HUD v2 frame screens hide the corner bubble (.onb-root); the guide stays on the two its steps send the player into. */
 body.hud-v2-screen-manifest #${ROOT_ID}, body.hud-v2-screen-diplomacy #${ROOT_ID} { display: block !important; }
 body.hud-v2-compact #${ROOT_ID}.tg-over-manpower { display: block !important; }

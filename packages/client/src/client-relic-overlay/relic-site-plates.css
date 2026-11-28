@@ -142,7 +142,7 @@
 }
 .relic-card-actions button + button { border-color: #5a4828; color: #a8997c; }
 .relic-plate.is-edge-right .relic-plate-arrow { order: 3; margin: 0 0 0 2px; }
-/* Picking a map point: the tap belongs to the map (scout waypoint, march), not the plate. */
+/* A plate on screen (and any plate while a map point is picked) is a label: the tap belongs to the tile under it. */
 .relic-plate.is-passive { pointer-events: none; }
 .relic-card-help {
   margin-left: auto;
