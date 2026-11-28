@@ -10,6 +10,7 @@ import type { HostingAlert, PaymentProvider, ServerProvider } from "../providers
 import { createWithdrawalService } from "./hosting-withdrawal.js";
 import { createFundingReconciler } from "./funding-reconciler.js";
 import { creationRetryDelayMs, type HostingConfig } from "./hosting-config.js";
+import { IDLE_WARNING_LEAD_MS, IDLE_WARNING_MAX_WAIT_MS, type HostingMailer } from "../hosting-email/hosting-mailer.js";
 
 export type HostingReconcilerDeps = {
   store: HostingStore;
@@ -20,6 +21,10 @@ export type HostingReconcilerDeps = {
   now: () => number;
   /** Called once when a sector opens (the "your sector is ready" email). Must not throw. */
   onSectorOpened?: (sector: SectorRecord) => void;
+  /** Player emails (hosting-email): sent on every pass, and the warning before an idle sector closes. */
+  mailer?: HostingMailer;
+  /** After each pass: how many emails were sent and how many wait, or why the pass failed. For the log. */
+  onEmailPass?: (result: { sent: number; pending: number; addresses: number } | { error: string }) => void;
 };
 
 const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error)).slice(0, 500);
@@ -128,8 +133,27 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
     // Counted from opening when no human has ever come. No look-around
     // period follows, since there is nobody to look.
     const lastVisit = Math.max(status.lastHumanVisitAt ?? 0, sector.openedAt ?? sector.createdAt);
+    if (now - lastVisit < config.idleCloseMs - IDLE_WARNING_LEAD_MS) return;
+    // Members are warned two days ahead (Terms of Sale section 5): the sector
+    // closes no sooner than two days after the warning went out. While it
+    // cannot go out (the email provider is down) the sector waits, up to
+    // IDLE_WARNING_MAX_WAIT_MS; with nobody reachable it closes two days after
+    // the warning was written. Either way the owner is told it closed unwarned.
+    let unwarned = 0;
+    if (deps.mailer) {
+      const warning = deps.mailer.warnIdle(sector, lastVisit, Math.max(lastVisit + config.idleCloseMs, now + IDLE_WARNING_LEAD_MS), now);
+      if (warning?.sentAt !== undefined) {
+        if (now - warning.sentAt < IDLE_WARNING_LEAD_MS) return;
+      } else if (warning) {
+        const stillTrying = deps.mailer.canSend() && warning.pending > 0 && now - warning.writtenAt < IDLE_WARNING_MAX_WAIT_MS;
+        if (stillTrying || now - warning.writtenAt < IDLE_WARNING_LEAD_MS) return;
+        unwarned = 1;
+      }
+    }
     if (now - lastVisit < config.idleCloseMs) return;
-    if (await deleteServer(sector, now, { state: "deleted", endedAt: now })) deps.alert("sector_closed_idle", { sectorId: sector.sectorId, idleDays: Math.floor((now - lastVisit) / 86_400_000) });
+    if (await deleteServer(sector, now, { state: "deleted", endedAt: now })) {
+      deps.alert("sector_closed_idle", { sectorId: sector.sectorId, idleDays: Math.floor((now - lastVisit) / 86_400_000), unwarned });
+    }
   };
 
   const reportRunningCount = (): void => {
@@ -161,6 +185,14 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
         await withdrawals.retryPendingRefunds();
       } catch {
         // Each failure is alerted where it happens; the next pass tries again.
+      }
+      if (deps.mailer) {
+        try {
+          deps.onEmailPass?.(await deps.mailer.runOnce());
+        } catch (error) {
+          // A failed send is recorded per email; this is anything else. The next pass tries again.
+          deps.onEmailPass?.({ error: errorText(error) });
+        }
       }
       reportRunningCount();
       store.prunePaymentEvents(deps.now() - config.paymentEventRetentionMs);
