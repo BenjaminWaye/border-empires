@@ -48,7 +48,7 @@ describe("createSsoSignInHandler", () => {
     await createSsoSignInHandler(deps, twitch)();
 
     expect(signInWithPopup).toHaveBeenCalledWith(deps.firebaseAuth, twitch.provider);
-    expect(logSignUpIfNewUser).toHaveBeenCalledWith(expect.any(Function), credential, "oidc.twitch");
+    expect(logSignUpIfNewUser).toHaveBeenCalledWith(deps.analytics, credential, "oidc.twitch");
     expect(statuses.at(-1)?.message).toBe("Twitch sign-in complete. Authorizing empire...");
     // Stays busy on success: onAuthStateChanged takes over from here.
     expect(deps.setAuthBusy).not.toHaveBeenCalledWith(false);
@@ -82,7 +82,7 @@ describe("createSsoSignInHandler", () => {
 
     expect(signInWithPopup).not.toHaveBeenCalled();
     expect(signInWithNativeSso).toHaveBeenCalledWith(deps.firebaseAuth, "apple.com");
-    expect(logSignUpIfNewUser).toHaveBeenCalledWith(expect.any(Function), credential, "apple.com");
+    expect(logSignUpIfNewUser).toHaveBeenCalledWith(deps.analytics, credential, "apple.com");
     expect(statuses.at(-1)?.message).toBe("Apple sign-in complete. Authorizing empire...");
   });
 

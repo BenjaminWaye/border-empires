@@ -1,6 +1,7 @@
 import { getApps, initializeApp, type FirebaseOptions } from "firebase/app";
 import { Capacitor } from "@capacitor/core";
-import { getAnalytics, setAnalyticsCollectionEnabled } from "firebase/analytics";
+import { getAnalytics, setAnalyticsCollectionEnabled, setConsent } from "firebase/analytics";
+import { deleteInstallations, getInstallations } from "firebase/installations";
 import { createAnalyticsConsent, type AnalyticsConsentController, type AnalyticsSource } from "../client-analytics-consent/client-analytics-consent.js";
 import { GoogleAuthProvider, OAuthProvider, getAuth, initializeAuth, indexedDBLocalPersistence, browserLocalPersistence } from "firebase/auth";
 import { isStagingHostname, selectBackend } from "../client-backend-selector/client-backend-selector.js";
@@ -100,7 +101,12 @@ export const createClientFirebaseSetup = (): {
   // unsupported contexts (some private-browsing modes, the vitest/jsdom test
   // environment); the consent controller then degrades to "no analytics".
   const analyticsConsent = measurementId && !Capacitor.isNativePlatform()
-    ? createAnalyticsConsent({ start: () => getAnalytics(firebaseApp), setCollection: (analytics, enabled) => setAnalyticsCollectionEnabled(analytics, enabled) })
+    ? createAnalyticsConsent({
+        start: () => getAnalytics(firebaseApp),
+        setCollection: (analytics, enabled) => setAnalyticsCollectionEnabled(analytics, enabled),
+        setConsentMode: (granted) => setConsent({ analytics_storage: granted ? "granted" : "denied", ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied" }),
+        forgetDevice: () => deleteInstallations(getInstallations(firebaseApp))
+      })
     : undefined;
 
   return {

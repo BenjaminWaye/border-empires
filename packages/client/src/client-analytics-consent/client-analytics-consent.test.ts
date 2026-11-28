@@ -22,9 +22,11 @@ const setup = (store = memoryStorage()) => {
   const instance = { app: {} } as unknown as Analytics;
   const start = vi.fn(() => instance);
   const setCollection = vi.fn();
+  const setConsentMode = vi.fn();
+  const forgetDevice = vi.fn(async () => undefined);
   const clearCookies = vi.fn();
-  const consent = createAnalyticsConsent({ start, setCollection, store, clearCookies, now: () => 1_000 });
-  return { instance, start, setCollection, clearCookies, consent, store };
+  const consent = createAnalyticsConsent({ start, setCollection, setConsentMode, forgetDevice, store, clearCookies, now: () => 1_000 });
+  return { instance, start, setCollection, setConsentMode, forgetDevice, clearCookies, consent, store };
 };
 
 describe("analytics consent", () => {
@@ -46,13 +48,18 @@ describe("analytics consent", () => {
     expect(next.start).toHaveBeenCalledTimes(1);
   });
 
-  it("switches collection off and deletes the cookies when consent is withdrawn, and back on when given again", () => {
-    const { consent, setCollection, clearCookies, instance, start } = setup();
+  it("switches collection off and deletes the cookies and the installation id when consent is withdrawn, and back on when given again", () => {
+    const { consent, setCollection, setConsentMode, forgetDevice, clearCookies, instance, start } = setup();
+    // Cookies left by earlier builds go at start-up while there is no yes.
+    expect(clearCookies).toHaveBeenCalledTimes(1);
     consent.grant();
+    expect(setConsentMode).toHaveBeenLastCalledWith(true);
     consent.withdraw();
     expect(consent.analytics()).toBeUndefined();
+    expect(setConsentMode).toHaveBeenLastCalledWith(false);
     expect(setCollection).toHaveBeenCalledWith(instance, false);
-    expect(clearCookies).toHaveBeenCalledTimes(1);
+    expect(forgetDevice).toHaveBeenCalledTimes(1);
+    expect(clearCookies).toHaveBeenCalledTimes(2);
     consent.grant();
     expect(setCollection).toHaveBeenLastCalledWith(instance, true);
     expect(start).toHaveBeenCalledTimes(1);
@@ -74,6 +81,26 @@ describe("analytics consent", () => {
     consent.grant();
     expect(consent.choice()).toBe("granted");
     expect(consent.analytics()).toBeUndefined();
+  });
+
+  it("keeps a yes's cookies at start-up", () => {
+    const store = memoryStorage({ [ANALYTICS_CONSENT_STORAGE_KEY]: JSON.stringify({ choice: "granted", at: 1 }) });
+    expect(setup(store).clearCookies).not.toHaveBeenCalled();
+  });
+
+  it("deletes the cookies on the site's own domain and every parent domain", () => {
+    const written: string[] = [];
+    const doc = {
+      location: { hostname: "play.borderempires.com" },
+      get cookie() { return "_ga=GA1; _ga_ABC=GS1; _gcl_au=1; keep=1"; },
+      set cookie(value: string) { written.push(value); }
+    } as unknown as Document;
+    deleteAnalyticsCookies(doc);
+    expect(written.filter((value) => value.startsWith("keep="))).toEqual([]);
+    for (const name of ["_ga", "_ga_ABC", "_gcl_au"]) {
+      expect(written).toContain(`${name}=; Max-Age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.borderempires.com`);
+      expect(written).toContain(`${name}=; Max-Age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.play.borderempires.com`);
+    }
   });
 
   it("deletes Google Analytics' cookies and leaves the others", () => {

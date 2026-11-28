@@ -51,6 +51,12 @@ describe("the analytics consent prompt", () => {
     expect(analyticsConsentSettingHtml()).toBe("");
   });
 
+  it("asks again when opened with ?analytics=ask, so the answer can be changed without entering the game", () => {
+    const doc = freshDocument();
+    startAnalyticsConsentUi(controller("granted"), doc, "?analytics=ask");
+    expect(doc.querySelector("[data-analytics-consent]")).not.toBeNull();
+  });
+
   it("lets the answer be changed in Settings", () => {
     const doc = freshDocument();
     const consent = controller("granted");
@@ -61,5 +67,6 @@ describe("the analytics consent prompt", () => {
     expect(consent.withdraw).toHaveBeenCalledTimes(1);
     expect(doc.querySelector("[data-analytics-consent-toggle-state]")?.textContent).toBe("off");
     expect(doc.querySelector("[data-analytics-consent-toggle]")?.textContent).toBe("Turn on");
+    expect(doc.querySelector("[data-analytics-consent-toggle]")?.getAttribute("aria-checked")).toBe("false");
   });
 });

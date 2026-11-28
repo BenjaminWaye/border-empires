@@ -185,8 +185,17 @@ acknowledgement (8c) and saving results (8d).
    `packages/client/src/client-analytics-consent/`): Google Analytics is not
    started, and sets no cookie, until the visitor answers "Yes" to a prompt
    with two equal buttons; the answer is kept in the browser and can be
-   changed in Settings → Account, and withdrawing switches collection off and
-   deletes the `_ga` cookies. The native apps run no analytics and do not ask.
+   changed in Settings → Account or by opening the game with `?analytics=ask`
+   (for the privacy page to link to). Withdrawing tells Google's tag the
+   answer (consent mode "denied"), switches collection off, deletes the
+   Firebase installation id kept in the browser and the `_ga`/`_gcl`/`_gac`
+   cookies; cookies left by earlier builds are deleted at load unless the
+   answer is yes. The native apps run no analytics and do not ask. Before
+   publishing: the live `packages/client/public/privacy.html` does not yet
+   describe this (the draft does), and the prompt links to it. Staging uses
+   the production measurement id by default and shares
+   `.borderempires.com` cookies with the game, so a yes on staging sets the
+   same cookie for play; set a separate id for staging.
    **Open:** the game's own sign-up funnel (`client-acquisition-funnel.ts`)
    stores a random visitor id in the browser (`localStorage`) to count each
    step once per browser. That is also storage for statistics, so it most

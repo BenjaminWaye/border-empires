@@ -14,8 +14,8 @@ const TOGGLE_ATTR = "data-analytics-consent-toggle";
 let active: AnalyticsConsentController | undefined;
 
 export const analyticsConsentBannerHtml = (): string => `
-  <div class="analytics-consent" role="region" aria-label="Usage analytics" ${BANNER_ATTR}>
-    <p class="analytics-consent-text">May we measure how Border Empires is used? This uses Google Analytics, which stores an identifier in your browser. Nothing is measured unless you say yes, and you can change your mind in Settings, under Account. <a href="/privacy.html" target="_blank" rel="noopener">Privacy policy</a></p>
+  <div class="analytics-consent" role="region" aria-label="Usage analytics" aria-live="polite" ${BANNER_ATTR}>
+    <p class="analytics-consent-text">May we use Google Analytics to see how Border Empires is used, so we can improve it? It stores an identifier in your browser and runs only if you say yes. You can change your mind in Settings, under Account. <a href="/privacy.html" target="_blank" rel="noopener">Privacy policy</a></p>
     <div class="analytics-consent-actions">
       <button type="button" class="panel-btn" ${CHOICE_ATTR}="denied">No, thanks</button>
       <button type="button" class="panel-btn" ${CHOICE_ATTR}="granted">Yes, that's fine</button>
@@ -29,7 +29,7 @@ export const analyticsConsentSettingHtml = (): string => {
   return `
     <div class="analytics-consent-setting">
       <span>Usage analytics (Google Analytics): <strong ${TOGGLE_ATTR}-state>${on ? "on" : "off"}</strong></span>
-      <button type="button" class="panel-btn" ${TOGGLE_ATTR}>${on ? "Turn off" : "Turn on"}</button>
+      <button type="button" class="panel-btn" role="switch" aria-checked="${on}" aria-label="Usage analytics" ${TOGGLE_ATTR}>${on ? "Turn off" : "Turn on"}</button>
     </div>`;
 };
 
@@ -37,14 +37,23 @@ const refreshSettings = (doc: Document): void => {
   if (!active) return;
   const on = active.choice() === "granted";
   doc.querySelectorAll(`[${TOGGLE_ATTR}-state]`).forEach((el) => { el.textContent = on ? "on" : "off"; });
-  doc.querySelectorAll(`[${TOGGLE_ATTR}]`).forEach((el) => { el.textContent = on ? "Turn off" : "Turn on"; });
+  doc.querySelectorAll(`[${TOGGLE_ATTR}]`).forEach((el) => {
+    el.textContent = on ? "Turn off" : "Turn on";
+    el.setAttribute("aria-checked", String(on));
+  });
 };
 
+/** `?analytics=ask` shows the prompt again, so the answer can be changed without entering the game (linked from the privacy policy). */
+export const ANALYTICS_ASK_AGAIN_PARAM = "analytics";
+
+const askedAgain = (search: string): boolean => new URLSearchParams(search).get(ANALYTICS_ASK_AGAIN_PARAM) === "ask";
+
 /**
- * Shows the prompt if the player has not chosen yet, and handles the prompt
- * and the setting from then on. Call once at start-up.
+ * Shows the prompt if the player has not chosen yet, or asked to choose
+ * again, and handles the prompt and the setting from then on. Call once at
+ * start-up.
  */
-export const startAnalyticsConsentUi = (consent: AnalyticsConsentController | undefined, doc: Document = document): void => {
+export const startAnalyticsConsentUi = (consent: AnalyticsConsentController | undefined, doc: Document = document, search: string = doc.location?.search ?? ""): void => {
   active = consent;
   if (!consent) return;
   doc.addEventListener("click", (event) => {
@@ -65,5 +74,5 @@ export const startAnalyticsConsentUi = (consent: AnalyticsConsentController | un
       refreshSettings(doc);
     }
   });
-  if (consent.choice() === undefined) doc.body.insertAdjacentHTML("beforeend", analyticsConsentBannerHtml());
+  if (consent.choice() === undefined || askedAgain(search)) doc.body.insertAdjacentHTML("beforeend", analyticsConsentBannerHtml());
 };

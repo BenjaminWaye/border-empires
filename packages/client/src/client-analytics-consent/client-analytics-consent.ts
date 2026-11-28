@@ -51,8 +51,11 @@ const writeAnalyticsConsent = (choice: AnalyticsConsent, now: number, store: Sto
  * withdrawn. They are set on the site's registrable domain, so each parent
  * domain of the current host is tried.
  */
-export const deleteAnalyticsCookies = (doc: Document = document): void => {
-  const names = doc.cookie.split(";").map((part) => part.split("=")[0]?.trim() ?? "").filter((name) => name === "_ga" || name.startsWith("_ga_") || name === "_gid");
+export const deleteAnalyticsCookies = (given?: Pick<Document, "cookie" | "location">): void => {
+  const doc = given ?? (typeof document === "undefined" ? undefined : document);
+  if (!doc) return;
+  // _ga, _ga_<id> and _gid are Analytics' own; _gcl_* and _gac_* appear when the property is linked to Google Ads.
+  const names = doc.cookie.split(";").map((part) => part.split("=")[0]?.trim() ?? "").filter((name) => name === "_ga" || name === "_gid" || /^_(ga|gac|gcl)_/.test(name));
   const labels = doc.location.hostname.split(".");
   const domains = labels.map((_, i) => labels.slice(i).join(".")).filter((domain) => domain.includes("."));
   // Both forms of expiry: some browsers ignore Max-Age=0.
@@ -60,6 +63,14 @@ export const deleteAnalyticsCookies = (doc: Document = document): void => {
   for (const name of names) {
     doc.cookie = `${name}=; ${expired}`;
     for (const domain of domains) doc.cookie = `${name}=; ${expired}; domain=.${domain}`;
+  }
+};
+
+const safely = (step: () => void): void => {
+  try {
+    step();
+  } catch {
+    // Best effort; see withdraw.
   }
 };
 
@@ -75,11 +86,16 @@ export type AnalyticsConsentController = {
 /**
  * `start` creates Firebase Analytics (getAnalytics) and may throw where it
  * cannot run; `setCollection` switches collection off and on again for a
- * running instance (setAnalyticsCollectionEnabled).
+ * running instance (setAnalyticsCollectionEnabled); `setConsentMode` tells
+ * Google's tag the answer (setConsent), so it stops writing its cookies even
+ * if a measurement id it uses is not the one `setCollection` switched off;
+ * `forgetDevice` deletes the Firebase installation id kept in IndexedDB.
  */
 export const createAnalyticsConsent = (deps: {
   start: () => Analytics;
   setCollection: (analytics: Analytics, enabled: boolean) => void;
+  setConsentMode?: (granted: boolean) => void;
+  forgetDevice?: () => Promise<void> | void;
   now?: () => number;
   store?: Storage;
   clearCookies?: () => void;
@@ -98,25 +114,31 @@ export const createAnalyticsConsent = (deps: {
     }
   };
   if (choice === "granted") start();
+  // Cookies the game set before it asked (earlier builds started analytics for everyone) go now, unless the answer is yes.
+  else (deps.clearCookies ?? deleteAnalyticsCookies)();
   return {
     choice: () => choice,
     analytics: () => (choice === "granted" ? running : undefined),
     grant: () => {
       choice = "granted";
       writeAnalyticsConsent("granted", now(), store);
+      safely(() => deps.setConsentMode?.(true));
       start();
     },
     withdraw: () => {
       choice = "denied";
       writeAnalyticsConsent("denied", now(), store);
+      // Each step is attempted whatever the others do: analytics() returns nothing from now on anyway.
+      safely(() => deps.setConsentMode?.(false));
       if (running) {
-        try {
-          deps.setCollection(running, false);
-        } catch {
-          // Collection is off for this visit anyway: analytics() returns nothing from now on.
-        }
+        const instance = running;
+        safely(() => deps.setCollection(instance, false));
       }
-      (deps.clearCookies ?? deleteAnalyticsCookies)();
+      safely(() => {
+        const forgetting = deps.forgetDevice?.();
+        if (forgetting) forgetting.catch(() => undefined);
+      });
+      safely(() => (deps.clearCookies ?? deleteAnalyticsCookies)());
     }
   };
 };
