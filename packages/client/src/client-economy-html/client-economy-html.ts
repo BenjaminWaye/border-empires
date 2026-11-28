@@ -103,7 +103,9 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
   for (const tile of args.tiles) {
     if (tile.ownerId !== args.me || tile.terrain !== "LAND" || tile.ownershipState !== "SETTLED") continue;
     if (tile.fogged) continue;
-    if (tile.town && resource === "FOOD") add("Town support", townFoodSlotDemand(tile.town));
+    // An unfed town is tagged from the same isFed the town screen and Towns list read, so "Short 2" here names the
+    // town it leaves unfed instead of contradicting a "Fed" there (first-15 playtest 2026-11-28).
+    if (tile.town && resource === "FOOD") add(TOWN_SUPPORT_LABEL, townFoodSlotDemand(tile.town), tile.town.isFed === false);
     if (tile.fort && tile.fort.status !== "removing") {
       const variant = tile.fort.variant ?? "FORT";
       const count = structureSlotRequirements(variant).find((r) => r.resource === resource)?.count ?? 0;
@@ -144,6 +146,8 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
 
 /** Label of the (negative) line for slots the server waived (e.g. Founding Concession, Treasury State). */
 export const SLOT_WAIVER_LABEL = "Waived by upgrades";
+/** Towns' FOOD upkeep in "Used by"; its warning reads "unfed", not "dormant". */
+export const TOWN_SUPPORT_LABEL = "Town support";
 
 // The rows above are counted from the tiles at each structure's base slot
 // cost; the server's demand total also applies upgrade waivers this client

@@ -97,7 +97,7 @@ const slotRowHtml = (input: EconomyRowsInput, resource: SlotResource): string =>
   return `<section class="v2e-row${demand > supply ? " v2e-short" : ""}${focus}" data-v2e-row="${resource}">
     ${head(`${demand} / ${supply} used`, status.text, status.tone)}
     ${listHtml("From", sources.map((b) => item(named(b), slotSupplyAmountLabel(b.amountPerMinute))), noSourcesHtml(resource))}
-    ${listHtml("Used by", occupants.map((b) => item(`${named(b)}${b.dormantCount ? ` · ${b.dormantCount} dormant` : ""}`, b.amountPerMinute < 0 ? `−${-b.amountPerMinute}` : String(b.amountPerMinute), Boolean(b.dormantCount))), "Nothing yet")}
+    ${listHtml("Used by", occupants.map((b) => item(`${named(b)}${b.dormantCount ? ` · ${b.dormantCount} ${b.label === "Town support" ? "unfed" : "dormant"}` : ""}`, b.amountPerMinute < 0 ? `−${-b.amountPerMinute}` : String(b.amountPerMinute), Boolean(b.dormantCount))), "Nothing yet")}
     ${fed}
   </section>`;
 };
