@@ -51,7 +51,7 @@ const scheduleRetry = (): void => {
 
 /**
  * Whether a click on a card that appeared at `shownAt` is dropped: a real tap (trusted input) in the card's first
- * FULLSCREEN_CARD_ARRIVAL_GUARD_MS. Scripted clicks (keyboard activation aside, tests) are never dropped.
+ * FULLSCREEN_CARD_ARRIVAL_GUARD_MS. Scripted clicks (element.click(), tests) are never dropped.
  */
 export const dropsArrivalTap = (trusted: boolean, nowMs: number, shownAt: number): boolean =>
   trusted && nowMs - shownAt < FULLSCREEN_CARD_ARRIVAL_GUARD_MS;
@@ -99,8 +99,7 @@ const flush = (): void => {
         if (mounted) {
           card.mounted = mounted;
           guardArrivalTaps(mounted);
-        }
-        else active = undefined;
+        } else active = undefined;
       }
     }
   }
