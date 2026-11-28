@@ -103,7 +103,7 @@ describe("guide steps with the scout drone", () => {
     if (view.kind !== "step") throw new Error("expected a step");
     expect(view.step.id).toBe("look-explore");
     expect(view.chapterTitle).toBe("Explore");
-    expect(view.title).toBe("Tap the marked unexplored ground, then Explore");
+    expect(view.title).toBe("Tap the marked unexplored ground, then Explore and Go");
     expect(view.highlightTiles).toEqual([{ x: 70, y: 50 }]);
   });
 
@@ -131,7 +131,7 @@ describe("guide steps with the scout drone", () => {
     const done = new Set(["look-pan", "look-zoom", "look-explore"]);
     const explore = evaluateGuide(input(), done);
     expect(explore).toEqual(
-      expect.objectContaining({ title: "No town nearby: tap the marked unexplored ground, then Explore", highlightTiles: [{ x: 70, y: 50 }] })
+      expect.objectContaining({ title: "No town nearby: tap the marked unexplored ground, then Explore and Go", highlightTiles: [{ x: 70, y: 50 }] })
     );
     const scouting = evaluateGuide(input({ scout: "out" }), done);
     expect(scouting).toEqual(expect.objectContaining({ title: "Your drone is flying: wait for its report", highlightTiles: [] }));

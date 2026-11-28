@@ -302,3 +302,35 @@ describe("a Waystation's free Manifest doesn't soft-lock the guide on a Manifest
     expect(view.waiting).toBe(false);
   });
 });
+
+// First-15 playtest 2026-11-28 (pt-snacker): after Finish the folded guide still read "4 steps left".
+describe("folded guide after Finish", () => {
+  it("shows no steps-left badge while every step left is waiting", () => {
+    const waiting = evaluateGuide(stepInput(), doneExcept(["contest-muster", "contest-attack", "diplomacy-truce", "diplomacy-truce-made"]));
+    if (waiting.kind !== "step") throw new Error("expected a step");
+    expect(waiting.waiting).toBe(true);
+    const folded = guideCardHtml(waiting, false);
+    expect(folded).not.toContain("tg-badge");
+    expect(folded).not.toContain("steps left");
+    const doable = evaluateGuide(stepInput(), doneExcept(["turn-activity", "contest-muster"]));
+    if (doable.kind !== "step") throw new Error("expected a step");
+    expect(guideCardHtml(doable, false)).toContain(`<span class="tg-badge">2</span>`);
+  });
+});
+
+// First-15 playtest 2026-11-28 (pt-craftseeker): after Expand To on a town outside reach (a waypoint
+// chain), the step still said "Tap the marked town, then Expand To" while the order was underway.
+describe("a queued Expand To toward the town", () => {
+  it("counts the town as being taken, without a tile change", () => {
+    const state = createInitialState();
+    state.me = ME;
+    const town = { name: "Mythharbor Vault", type: "FARMING", populationTier: "TOWN" } as unknown as Tile["town"];
+    state.tiles.set(tileKey(6, 0), tile({ x: 6, y: 0, town }));
+    expect(buildGuideInput(state).footholdTargets.town).toEqual(expect.objectContaining({ pending: [], expand: [{ x: 6, y: 0 }] }));
+    state.waypoint = [{ target: { x: 6, y: 0 } } as unknown as (typeof state.waypoint)[number]];
+    const queued = buildGuideInput(state);
+    expect(queued.footholdTargets.town).toEqual(expect.objectContaining({ pending: [{ x: 6, y: 0 }], expand: [] }));
+    const view = evaluateGuide({ ...stepInput({ footholdTargets: queued.footholdTargets }), checklist: { ...stepInput().checklist, townExpanded: false } }, new Set(["look-pan", "look-zoom", "look-explore"]));
+    expect(view).toEqual(expect.objectContaining({ title: "Taking the marked town..." }));
+  });
+});

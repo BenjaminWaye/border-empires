@@ -126,7 +126,7 @@ describe("tutorial guide steps", () => {
     const checklist = { ...baseInput().checklist, step: "EXPAND_RELAY_BEACON" as const, relayBeaconSite: { x: 1, y: 1 } };
     const lead = { x: 60, y: 8 };
     const view = evaluateGuide(baseInput({ checklist, scout: "ready", scoutFlights: 7, ownsRelayBeacon: true, townLead: lead }), pastFind);
-    expect(view).toEqual(expect.objectContaining({ title: "Let's try exploring some more: tap the mark, then Explore", highlightTiles: [lead] }));
+    expect(view).toEqual(expect.objectContaining({ title: "Let's try exploring some more: tap the mark, then Explore and Go", highlightTiles: [lead] }));
     expect(guideBeaconSite("foothold-take-town", baseInput({ checklist, scout: "ready", townLead: lead }))).toBeUndefined();
     const flying = evaluateGuide(baseInput({ checklist, scout: "out", townLead: lead }), pastFind);
     expect(flying.kind === "step" && flying.title).toBe("Your drone is flying: wait for its report");
@@ -415,5 +415,13 @@ describe("tutorial guide steps", () => {
     const view = evaluateGuide(baseInput(), new Set(["look-explore", "foothold-take-town", "foothold-take-food", "reach-beacon"]));
     expect(view.kind === "step" ? view.step.id : view.kind).not.toBe("look-pan");
     expect(view.kind === "step" ? view.newlyCompleted : []).toEqual(expect.arrayContaining(["look-pan", "look-zoom"]));
+  });
+
+  // First-15 playtest 2026-11-28: opening Manifests first saved "manifest-open", and every earlier
+  // doneIfLaterStepDone step (drag, zoom, explore, Relay Beacon) counted as done: the guide began at 5/18.
+  it("does not tick earlier steps when a step far ahead was done out of order", () => {
+    const view = evaluateGuide(baseInput(), new Set(["manifest-open"]));
+    expect(view.kind === "step" ? view.newlyCompleted : ["done"]).toEqual([]);
+    expect(view).toEqual(expect.objectContaining({ completedCount: 1, step: expect.objectContaining({ id: "look-pan" }) }));
   });
 });

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, setWorldSeed, terrainAt, visualLandBiomeAt } from "@border-empires/shared";
-import { isForestTile } from "../client-constants.js";
+import { isForestTile, isHillsTile } from "../client-constants.js";
 
 import type { Tile } from "../client-types.js";
 
@@ -32,7 +32,7 @@ const createTile = (overrides: Partial<Tile>): Tile => ({
 const findNonLandTile = (): { x: number; y: number } => {
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     for (let x = 0; x < WORLD_WIDTH; x += 1) {
-      if (terrainAt(x, y) !== "LAND") return { x, y };
+      if (terrainAt(x, y) !== "LAND" && !isHillsTile(x, y)) return { x, y };
     }
   }
   throw new Error("expected at least one non-land tile in world");
@@ -41,7 +41,7 @@ const findNonLandTile = (): { x: number; y: number } => {
 const findSandLandTile = (): { x: number; y: number } => {
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     for (let x = 0; x < WORLD_WIDTH; x += 1) {
-      if (terrainAt(x, y) === "LAND" && landBiomeAt(x, y) === "SAND") return { x, y };
+      if (terrainAt(x, y) === "LAND" && landBiomeAt(x, y) === "SAND" && !isHillsTile(x, y)) return { x, y };
     }
   }
   throw new Error("expected at least one sand land tile in world");
@@ -87,7 +87,7 @@ describe("client runtime display support", () => {
         // Forest labels win over PLAINS/GRASSLAND, but JUNGLE (always dark-canopy
         // forest), MARSH and SNOW are named even on forest tiles.
         const forestOk = biome === "JUNGLE" || biome === "MARSH" || biome === "SNOW" || !isForestTile(x, y);
-        if (terrainAt(x, y) === "LAND" && visualLandBiomeAt(x, y) === biome && forestOk) return { x, y };
+        if (terrainAt(x, y) === "LAND" && visualLandBiomeAt(x, y) === biome && forestOk && !isHillsTile(x, y)) return { x, y };
       }
     }
     throw new Error(`expected at least one ${biome} tile`);
@@ -97,6 +97,24 @@ describe("client runtime display support", () => {
     const { terrainLabel } = createSubject();
     const sample = findVisual(biome);
     expect(terrainLabel(sample.x, sample.y, "LAND")).toBe(biome);
+  });
+
+  // First-15 playtest 2026-11-28 (pt-citybuilder): "PLAINS (330, 249)" listed "Hills: vision +1, Hills:
+  // defense" modifiers. The title now names the hills the modifiers come from.
+  it("names hills in the label, as the tile's Hills modifiers do", () => {
+    setWorldSeed(9001, "continents", 9);
+    const { terrainLabel } = createSubject();
+    let sample: { x: number; y: number } | undefined;
+    for (let y = 0; y < WORLD_HEIGHT && !sample; y += 1) {
+      for (let x = 0; x < WORLD_WIDTH; x += 1) {
+        if (terrainAt(x, y) === "LAND" && visualLandBiomeAt(x, y) === "PLAINS" && landBiomeAt(x, y) !== "SAND" && isHillsTile(x, y)) {
+          sample = { x, y };
+          break;
+        }
+      }
+    }
+    if (!sample) throw new Error("expected a plains hills tile");
+    expect(terrainLabel(sample.x, sample.y, "LAND")).toBe("HILLS");
   });
 
   it("labels v8 look-only biomes (the live season's JUNGLE/SNOW) too", () => {

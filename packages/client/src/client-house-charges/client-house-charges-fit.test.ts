@@ -4,7 +4,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH, type HouseChargeView } from "@border-empires
 import { PerspectiveCamera, Vector3 } from "three";
 import { MIN_ZOOM } from "../client-constants.js";
 import { applyPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
-import { houseChargeFitDiscs, houseChargeFitView } from "./client-house-charges-fit.js";
+import { houseChargeFitDiscs, houseChargeFitView, UNSCOUTED_CHARGE_MIN_ZOOM } from "./client-house-charges-fit.js";
 import { roughCircleFor } from "./client-house-charges-search-guide.js";
 import { showHouseChargeOnMap, takeHouseChargeMapShowRequest } from "./client-house-charges-panel.js";
 
@@ -105,5 +105,29 @@ describe("Show on map frames the whole charge", () => {
     expect([state.camSubX, state.camSubY]).toEqual([0, 0]);
     expect(takeHouseChargeMapShowRequest()).toEqual({ x: state.camX, y: state.camY, zoom: state.zoom });
     expect(takeHouseChargeMapShowRequest()).toBeUndefined();
+  });
+});
+
+// First-15 playtest 2026-11-28 (pt-achiever): Show on map for an unscouted region charge zoomed a phone
+// out to about 16 px a tile over fog, too small to tap a tile to explore.
+describe("Show on map for a charge with nothing scouted", () => {
+  const region: HouseChargeView = {
+    id: "DESERT:barrens", kind: "DESERT", title: "Hold Brasslock Barrens", rarity: "COMMON", renown: 1, kept: true, held: false, size: 0,
+    searchCircle: { x: 300, y: 200, radius: 9 }, targets: [], areaTileKeys: ["300,200", "301,200", "330,215"]
+  } as unknown as HouseChargeView;
+  const unseen = () => false;
+
+  it.each([["2d" as const], ["3d" as const]])("%s: centres the search circle at a zoom a tile can be tapped at", (renderer) => {
+    const view = houseChargeFitView(region, unseen, phone, 58, renderer);
+    expect(view.zoom).toBe(UNSCOUTED_CHARGE_MIN_ZOOM);
+    expect([view.x, view.y]).toEqual([300, 200]);
+  });
+
+  it("never zooms in past where the player already is", () => {
+    expect(houseChargeFitView(region, unseen, phone, 20).zoom).toBe(20);
+  });
+
+  it("still zooms out as far as needed once its ground is scouted", () => {
+    expect(houseChargeFitView(region, () => true, phone, 58).zoom).toBeLessThan(UNSCOUTED_CHARGE_MIN_ZOOM);
   });
 });
