@@ -253,13 +253,20 @@ In the Backblaze console (the account whose existing `be-backups-staging`
 bucket is in `eu-central-003`, Amsterdam; a B2 account's region is fixed when the
 account is created, so new buckets there are also in the EU):
 
-1. Production: create a new **private** bucket, for example
-   `be-backups-prod-eu`, with default encryption on and Object Lock **off**
-   (it would block the retention deletes). Lifecycle: **custom rules** — prefix
-   `hourly/`: hide after 2 days, delete 1 day after hiding; prefix `daily/`: hide
-   after 14 days, delete 1 day after hiding; prefix `ledger/`: delete 1 day after
-   hiding (keeps only the last version). These expire copies even if the job
-   stops, which the privacy page relies on. Check that its endpoint reads `s3.eu-central-003…`.
+1. Production: **done 2026-11-28** — bucket `border-empires-prod` (private,
+   encryption on, Object Lock off, endpoint `s3.eu-central-003.backblazeb2.com`,
+   EU). **Still to do: its lifecycle.** It was created with "Keep all versions",
+   which must not stay: every hourly overwrite of `ledger/account-deletion-ledger.json`
+   then keeps an old version forever, and nothing expires copies if the job
+   stops. (`deploy/bin/backup` hard-deletes its own prunes, so those do not
+   linger even now.) In the bucket's Lifecycle Settings choose **custom rules**:
+   prefix `hourly/`: hide after 2 days, delete 1 day after hiding; prefix
+   `daily/`: hide after 14 days, delete 1 day after hiding; prefix `ledger/`:
+   delete 1 day after hiding. The age-based rules expire copies even if the job
+   stops, which the privacy page's "within 15 days" relies on. The minimum
+   acceptable alternative is "Keep prior versions for this number of days: 1",
+   which removes hidden and overwritten versions but has no age backstop: the
+   privacy wording then holds only while the job runs.
 2. Staging: empty the old `be-backups-staging` bucket first (stale snapshots and
    hidden versions from the old job; see `docs/legal-drafts/README.md`) and give
    it the same lifecycle rules. Also empty or delete the old `be-backups-prod` bucket.
@@ -271,7 +278,8 @@ On each server, as root:
 
 4. `/etc/border-empires/rclone.conf` (owner `deploy`, mode 600):
    `[b2]` / `type = b2` / `account = <keyID>` / `key = <applicationKey>` / `hard_delete = true`.
-5. In `/etc/border-empires/host.conf` set `BACKUP_BUCKET=<bucket>` (optionally `BACKUP_RATE_MB`).
+5. In `/etc/border-empires/host.conf` set `BACKUP_BUCKET=<bucket>` (production:
+   `BACKUP_BUCKET=border-empires-prod`; optionally `BACKUP_RATE_MB`).
 6. Update `/opt/border-empires/bin/deploy` with the root `curl` from **Deploy**
    above (so deploys fetch `backup-snapshot.mjs` and the restore helpers), then
    deploy the current sha (or wait for the next CI deploy) and check that
@@ -287,6 +295,13 @@ On each server, as root:
     `journalctl -u border-empires-backup` and the logs around :00-:05 for the first day.
 
 Staging: run steps 2-10 there and leave it for a day or two before production.
+
+**Owner checklist for production (as of 2026-11-28):** (a) set the lifecycle of
+`border-empires-prod` (step 1); (b) create its bucket-scoped application key
+(step 3), which goes onto the server, or to an agent only through the secure
+credential form, never in chat; (c) steps 4-9 on the production server; (d)
+publish the privacy page naming Backblaze; (e) only then switch the timer on
+(step 10). Steps (b) and (e) need the owner; agents prepare the rest.
 Production: only after the privacy page naming Backblaze
 (`docs/legal-drafts/privacy.html`) is published.
 
