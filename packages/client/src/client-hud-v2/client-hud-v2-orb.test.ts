@@ -11,16 +11,24 @@ describe("manpower orb next batch", () => {
     expect(orbHtml({ ...base, manpower: 5000, nextBatchAmount: 1200 })).toContain(">+622 in 45m<");
     expect(orbHtml({ ...base, nextBatchAmount: 1200.9 })).toContain(">+1,200 in 45m<");
     expect(orbHtml({ ...base, nextBatchAmount: -50 })).toContain(">next batch 45m<");
-    expect(orbHtml({ ...base, manpower: 6000, nextBatchAmount: 1200 })).not.toContain(">+");
+    expect(orbHtml({ ...base, manpower: 6000, nextBatchAmount: 1200 })).not.toMatch(/>\+[\d,]+ in /);
   });
 
   // Playtest 2026-11-18: over the cap the orb's refill line vanished, with no countdown and no reason why.
   it("says why there is no countdown at or over the cap", () => {
-    expect(orbHtml({ ...base, manpower: 6000, nextBatchAmount: 1200 })).toContain('<span class="hud-v2-orb-refill hud-v2-orb-refill-state">over cap</span>');
-    expect(orbHtml({ ...base, manpower: 6000 })).toContain("over capacity: no batch until you spend below it");
+    expect(orbHtml({ ...base, manpower: 6000, nextBatchAmount: 1200 })).toContain('<span class="hud-v2-orb-refill hud-v2-orb-refill-state">+378 reserve</span>');
+    expect(orbHtml({ ...base, manpower: 6000 })).toContain("378 reserve above capacity: no batch until you spend below it");
     expect(orbHtml({ ...base, manpower: 5622 })).toContain('<span class="hud-v2-orb-refill hud-v2-orb-refill-state">full</span>');
     // A countdown is not a state line, so phones keep hiding it.
     expect(orbHtml({ ...base, nextBatchAmount: 1200 })).not.toContain("hud-v2-orb-refill-state");
+  });
+
+  // First-15 playtest 2026-11-28: "870 over cap" read like a penalty for the landing reserve the game had just paid.
+  it("names manpower above capacity a reserve, never over cap, and explains it on first tap", () => {
+    const over = orbHtml({ ...base, manpower: 6000 });
+    expect(over).not.toMatch(/over cap/i);
+    expect(over).toContain('data-hud-explain="reserve"');
+    expect(orbHtml(base)).toContain('data-hud-explain="manpower"');
   });
 
   it("explains overflow without presenting the cap as a maximum holding", () => {

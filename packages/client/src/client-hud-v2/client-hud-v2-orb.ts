@@ -5,6 +5,7 @@
 
 import type { ClientState } from "../client-state/client-state.js";
 import { MANPOWER_HINT } from "./client-hud-v2-hints.js";
+import { hudExplainAttr } from "../client-hud-explain/client-hud-explain.js";
 import { flagDrainLabel, flagDrainPerMin, flagStagedTotal } from "../client-muster-drain/client-muster-drain.js";
 import type { ManpowerPanelMusterFlag } from "../client-side-panel-html/client-side-panel-html.js";
 import { formatRefillCountdown, freshNextBatchAmount, nextBatchGain, nextManpowerRefillForPlayer } from "../client-manpower-gauge/client-manpower-refill.js";
@@ -110,12 +111,19 @@ export const orbInputForState = (
   color
 });
 
-/** `state`: full / over cap, the one line phones keep inside the orb (no countdown to show there). */
+/**
+ * `state`: full / reserve, the one line phones keep inside the orb (no countdown to show there). Above capacity reads
+ * "+870 reserve", not "over cap": the landing reserve and Waystation grants are paid above it on purpose, and
+ * "over cap" read like a penalty (first-15 playtest 2026-11-28).
+ */
 const orbRefillLine = (input: OrbInput): { text: string; label: string; state?: boolean } => {
   const { nextRefillAt } = input;
   // Nothing accrues at or above the cap (runtime-manpower.ts), so there is no batch to count down to:
   // say so instead of dropping the line (playtest 2026-11-18). Same words as the Manpower panel.
-  if (input.manpower > input.manpowerCap) return { text: "over cap", label: ", over capacity: no batch until you spend below it", state: true };
+  if (input.manpower > input.manpowerCap) {
+    const reserve = Math.floor(input.manpower - input.manpowerCap).toLocaleString("en-US");
+    return { text: `+${reserve} reserve`, label: `, ${reserve} reserve above capacity: no batch until you spend below it`, state: true };
+  }
   if (input.manpower >= input.manpowerCap && input.manpowerCap > 0) return { text: "full", label: ", full: no batch until you spend", state: true };
   if (nextRefillAt === undefined) return { text: "", label: "" };
   const batch = orbBatchAmount(input);
@@ -145,15 +153,14 @@ export const orbHtml = (input: OrbInput): string => {
   const line = orbRefillLine(input);
   const refill = line.text ? `<span class="hud-v2-orb-refill${line.state ? " hud-v2-orb-refill-state" : ""}">${line.text}</span>` : "";
   const overCapacity = input.manpower > input.manpowerCap;
-  const excess = Math.floor(Math.max(0, input.manpower - input.manpowerCap)).toLocaleString("en-US");
   const overflow = orbOverflowHtml(input);
   const capPrefix = overCapacity ? "Capacity " : "/ ";
   const drain = flagDrainLabel(input.flagDrainPerMin ?? 0);
   const drainHtml = drain ? `<span class="hud-v2-orb-drain">${drain}</span>` : "";
   const staged = Math.floor(input.flagStaged ?? 0);
   const flagsLabel = drain ? `, ${drain.replace("→", "to")}` : staged > 0 ? `, ${staged} in flags` : "";
-  const label = `Manpower ${Math.floor(input.manpower)} of ${Math.floor(input.manpowerCap)}${line.label}${overCapacity ? `, ${excess} above capacity` : ""}${flagsLabel}`;
-  return `<button type="button" class="hud-v2-orb${fill <= 0.02 ? " hud-v2-orb-empty" : ""}" data-hud-v2-open="manpower" aria-label="${label}" title="${label}. ${MANPOWER_HINT}">
+  const label = `Manpower ${Math.floor(input.manpower)} of ${Math.floor(input.manpowerCap)}${line.label}${flagsLabel}`;
+  return `<button type="button" class="hud-v2-orb${fill <= 0.02 ? " hud-v2-orb-empty" : ""}" data-hud-v2-open="manpower"${hudExplainAttr(overCapacity ? "reserve" : "manpower")} aria-label="${label}" title="${label}. ${MANPOWER_HINT}">
     <svg viewBox="0 0 180 180" aria-hidden="true">
       <defs>
         <clipPath id="hud-v2-orb-clip"><circle cx="90" cy="90" r="74"/></clipPath>

@@ -6,6 +6,7 @@ import { musterFillText, musterStatusText, type ManpowerPanelMusterFlag } from "
 import type { DevelopmentSlotOccupant } from "../client-development-panel/client-development-html.js";
 import { DEV_SLOTS_HINT } from "./client-hud-v2-hints.js";
 import { nextStepsHtml, type NextStep } from "./client-hud-v2-next-step.js";
+import { hudExplainAttr } from "../client-hud-explain/client-hud-explain.js";
 import { foodShortageHtml, type FoodShortage } from "./client-hud-v2-food-shortage.js";
 
 export type TrackerNeed = { kind: "afc" | "flag"; title: string; sub: string; x?: number; y?: number };
@@ -91,7 +92,7 @@ export const buildSlotsHtml = (slots: TrackerInput["buildSlots"], open: boolean,
   const busy = Math.min(limit, Math.max(0, slots.busy));
   const free = limit - busy;
   const pips = Array.from({ length: limit }, (_, i) => `<span class="hud-v2-slot-pip${i < busy ? " hud-v2-slot-busy" : ""}"></span>`).join("");
-  return `<button type="button" class="hud-v2-slots${free > 0 ? " hud-v2-slots-free" : ""}${pulse ? " hud-v2-slots-pulse" : ""}" data-hud-v2-slots-toggle aria-expanded="${open}" aria-label="Development slots ${busy} of ${limit} in use" title="${DEV_SLOTS_HINT}"><span class="hud-v2-slots-label">Dev slots</span><span class="hud-v2-slot-pips" aria-hidden="true">${pips}</span><span class="hud-v2-slots-count">${busy}/${limit}${free > 0 ? ` · ${free} free` : ""}</span><span class="hud-v2-slots-fold" aria-hidden="true">${open ? "▾" : "▸"}</span></button>`;
+  return `<button type="button" class="hud-v2-slots${free > 0 ? " hud-v2-slots-free" : ""}${pulse ? " hud-v2-slots-pulse" : ""}" data-hud-v2-slots-toggle${hudExplainAttr("dev")} aria-expanded="${open}" aria-label="Development slots ${busy} of ${limit} in use" title="${DEV_SLOTS_HINT}"><span class="hud-v2-slots-label">Dev slots</span><span class="hud-v2-slot-pips" aria-hidden="true">${pips}</span><span class="hud-v2-slots-count">${busy}/${limit}${free > 0 ? ` · ${free} free` : ""}</span><span class="hud-v2-slots-fold" aria-hidden="true">${open ? "▾" : "▸"}</span></button>`;
 };
 
 const SLOT_PULSE_MS = 2_000;

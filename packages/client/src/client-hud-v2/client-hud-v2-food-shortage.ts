@@ -26,6 +26,7 @@ import { hasRelayBeaconBuildTile } from "../client-relay-beacon-site/client-rela
 import { structureManpowerCostForState } from "../client-structure-manpower-cost/client-structure-manpower-cost.js";
 import { townIdentityForTile } from "../client-town-identity.js";
 import { townBuildPlots } from "./client-hud-v2-town-plots.js";
+import "./client-hud-v2-food-fix.css";
 
 /** Known grain or fish further than this from home doesn't count as "nearby": the drone row shows instead. */
 export const FOOD_NEARBY_TILES = 15;
@@ -216,8 +217,30 @@ const stepHtml = (step: FoodStep): string => {
   return `<${tag}${type} class="hud-v2-tracker-row hud-v2-next-step hud-v2-food-step"${attr}><span class="hud-v2-tracker-title">${esc(step.title)}</span><span class="hud-v2-tracker-sub">${esc(step.sub)}</span></${tag}>`;
 };
 
-/** The header ("Short 5 FOOD"), and under it the fixes while it is unfolded. */
+/**
+ * The one-tap fix a red FOOD warning offers (owner, first-15 playtest 2026-11-28: "Garrison a farm" or "Build a
+ * farm plot"): grain or fish you hold but haven't garrisoned, else unclaimed grain or fish in reach, else Farm
+ * Plots you can afford now (as many as the shortage, at most). Beacons and scouting stay in the unfolded list.
+ */
+export type FoodFix = { kind: "garrison" | "expand" | "plots"; x: number; y: number; count: number; label: string };
+
+export const primaryFoodFix = (food: FoodShortage | undefined): FoodFix | undefined => {
+  if (!food) return undefined;
+  if (food.garrison) return { kind: "garrison", x: food.garrison.x, y: food.garrison.y, count: 1, label: `Garrison ${FOOD_NAME[food.garrison.resource]}` };
+  if (food.expand) return { kind: "expand", x: food.expand.x, y: food.expand.y, count: 1, label: `Expand to ${FOOD_NAME[food.expand.resource]}` };
+  const count = Math.min(food.short, food.plotsToQueue);
+  if (food.plotTown && count > 0) return { kind: "plots", x: food.plotTown.x, y: food.plotTown.y, count, label: `Build ${plural(count, "Farm Plot")}` };
+  return undefined;
+};
+
+/** The fix's button: every warning that offers it uses this one, handled by the HUD (data-hud-v2-food-fix). */
+export const foodFixButtonHtml = (label: string, className = ""): string =>
+  `<button type="button" class="hud-v2-food-fix${className ? ` ${className}` : ""}" data-hud-v2-food-fix>${esc(label)} ›</button>`;
+
+/** The header ("Short 5 FOOD") with its one-tap fix beside it, and under it every fix while it is unfolded. */
 export const foodShortageHtml = (food: FoodShortage, open: boolean): string => {
-  const head = `<button type="button" class="hud-v2-tracker-row hud-v2-next-step hud-v2-food-short" data-hud-v2-food-toggle aria-expanded="${open}"><span class="hud-v2-tracker-title"><span aria-hidden="true">${open ? "▾" : "▸"}</span> Short ${food.short} FOOD</span></button>`;
+  const toggle = `<button type="button" class="hud-v2-tracker-row hud-v2-next-step hud-v2-food-short" data-hud-v2-food-toggle aria-expanded="${open}"><span class="hud-v2-tracker-title"><span aria-hidden="true">${open ? "▾" : "▸"}</span> Short ${food.short} FOOD</span></button>`;
+  const fix = primaryFoodFix(food);
+  const head = fix ? `<div class="hud-v2-food-short-row">${toggle}${foodFixButtonHtml(fix.label)}</div>` : toggle;
   return open ? head + foodShortageSteps(food).map(stepHtml).join("") : head;
 };

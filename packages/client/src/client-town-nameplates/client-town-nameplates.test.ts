@@ -6,6 +6,7 @@ let threeActive = false;
 vi.mock("../client-renderer-mode.js", () => ({ isTrue3DRendererActive: () => threeActive }));
 const { createTownNameplates, placeNameplates } = await import("./client-town-nameplates.js");
 import type { BiotaTownStatus } from "@border-empires/sim-protocol";
+import { setFoodFixLabel, setFoodFixRunner } from "../client-food-fix/client-food-fix-store.js";
 
 const townTile = (x: number, overrides: Partial<NonNullable<Tile["town"]>> = {}): Tile => ({
   x, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED",
@@ -35,6 +36,53 @@ describe("createTownNameplates (2D path)", () => {
     expect(plate?.querySelector(".town-plate-pop")?.textContent).toBe("20k");
     expect(plate?.style.getPropertyValue("--town-plate-owner")).toBe("#e3b92b");
     expect(plate?.getAttribute("title")).toBe("Town1: Unfed");
+  });
+
+  // First-15 playtest 2026-11-28: "unfed" showed only inside the Towns panel; owner: offer the fix on the map label too.
+  it("spells out Unfed and offers the HUD's one-tap FOOD fix on an unfed town's plate", () => {
+    const { host, plates } = mount();
+    const unfed = townTile(1, { isFed: false, goldPerMinute: 0, populationGrowthPerMinute: 0 });
+    setFoodFixLabel(undefined);
+    plates.render([at(unfed, 100, 200)], { size: 40, project });
+    expect(host.querySelector(".town-plate-tag")?.textContent).toBe("Unfed");
+    expect(host.querySelector("[data-town-plate-fix]")).toBeNull();
+    const run = vi.fn();
+    setFoodFixRunner(run);
+    setFoodFixLabel("Garrison grain");
+    plates.render([at(unfed, 100, 200)], { size: 40, project });
+    const fix = host.querySelector<HTMLButtonElement>("[data-town-plate-fix]");
+    expect(fix?.textContent).toBe("Garrison grain ›");
+    const mapPress = vi.fn();
+    window.addEventListener("mousedown", mapPress);
+    fix!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    fix!.click();
+    window.removeEventListener("mousedown", mapPress);
+    expect(run).toHaveBeenCalledOnce();
+    expect(mapPress).not.toHaveBeenCalled();
+    // A fed town offers nothing.
+    plates.render([at(townTile(1), 100, 200)], { size: 40, project });
+    expect(host.querySelector("[data-town-plate-fix]")).toBeNull();
+    setFoodFixLabel(undefined);
+    setFoodFixRunner(undefined);
+  });
+
+  // Review of PR #3086: cancelling touchstart/touchend makes a phone skip the click, so the fix never ran on a tap.
+  it("never cancels the touch on an unfed plate's fix button, so a phone tap still clicks it", () => {
+    const { host, plates } = mount();
+    setFoodFixLabel("Garrison grain");
+    plates.render([at(townTile(1, { isFed: false, goldPerMinute: 0, populationGrowthPerMinute: 0 }), 100, 200)], { size: 40, project });
+    const fix = host.querySelector<HTMLButtonElement>("[data-town-plate-fix]")!;
+    expect(fix.tabIndex).toBe(-1);
+    const mapTouch = vi.fn();
+    window.addEventListener("touchstart", mapTouch);
+    for (const type of ["touchstart", "touchend"]) {
+      const touch = new Event(type, { bubbles: true, cancelable: true });
+      fix.dispatchEvent(touch);
+      expect(touch.defaultPrevented).toBe(false);
+    }
+    window.removeEventListener("touchstart", mapTouch);
+    expect(mapTouch).not.toHaveBeenCalled();
+    setFoodFixLabel(undefined);
   });
 
   // Playtest 2026-11-21: the struck coin alone didn't tell the player their captured town was giving nothing.

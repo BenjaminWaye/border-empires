@@ -6,6 +6,7 @@ import { resourceSimpleIconUrl } from "../client-resource-icons/client-resource-
 import type { Tile } from "../client-types.js";
 import type { BiotaTownStatus } from "@border-empires/sim-protocol";
 import { formatPlatePopulation, STATUS_LABEL, townNameplateFor, type TownNameplate, type TownNameplateGrowth, type TownNameplateStatus } from "./client-town-nameplate-model.js";
+import { foodFixLabel, requestFoodFix } from "../client-food-fix/client-food-fix-store.js";
 import "./client-town-nameplates.css";
 
 interface NameplateTile { readonly wx: number; readonly wy: number; readonly wk: string; readonly px: number; readonly py: number; readonly vis: string; readonly t?: Tile | undefined }
@@ -56,9 +57,18 @@ const GROWTH_MARK: Record<TownNameplateGrowth, string> = {
 const NAME_MAX_W = 150, NAME_CHAR_W = 9, PLATE_H = 32, PLATE_GAP = 4;
 // The struck coin alone was missed (2026-11-21 playtest): an ungarrisoned town spells it out on its plate.
 const UNGARRISONED_TAG = "Not garrisoned", UNGARRISONED_TAG_W = 106;
-const plateWidth = (plate: TownNameplate): number =>
-  22 + Math.min(NAME_MAX_W, plate.name.length * NAME_CHAR_W) + (plate.status ? 22 : 0) + (plate.population === undefined ? 0 : 40) + (plate.growth ? 12 : 0) +
-  (plate.status === "ungarrisoned" ? UNGARRISONED_TAG_W : 0);
+// First-15 playtest 2026-11-28: an unfed town said so only in the Towns panel. Its plate now spells it out and
+// offers the HUD's one-tap FOOD fix ("Garrison grain ›", client-food-fix-store.ts) when one is in reach.
+const UNFED_TAG = "Unfed", UNFED_TAG_W = 46, FIX_CHAR_W = 7, FIX_PAD_W = 22;
+const unfedFix = (plate: TownNameplate): string | undefined => (plate.status === "unfed" ? foodFixLabel() : undefined);
+const plateWidth = (plate: TownNameplate): number => {
+  const fix = unfedFix(plate);
+  return 22 + Math.min(NAME_MAX_W, plate.name.length * NAME_CHAR_W) + (plate.status ? 22 : 0) + (plate.population === undefined ? 0 : 40) + (plate.growth ? 12 : 0) +
+    (plate.status === "ungarrisoned" ? UNGARRISONED_TAG_W : 0) + (plate.status === "unfed" ? UNFED_TAG_W : 0) + (fix ? FIX_PAD_W + (fix.length + 2) * FIX_CHAR_W : 0);
+};
+
+const escapeHtml = (text: string): string =>
+  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** Like Civ banners, plates grow as you zoom in: base size up to ~48px tiles, then up to 1.6x. */
 export const plateScaleForTile = (tileCssPx: number): number => Math.min(1.6, Math.max(1, 0.7 + tileCssPx / 160));
@@ -89,7 +99,10 @@ const plateHtml = (plate: TownNameplate): string => {
   const population = plate.population === undefined
     ? ""
     : `<span class="town-plate-pop"${plate.growth ? ` data-growth="${plate.growth}"` : ""}>${formatPlatePopulation(plate.population)}${growth}</span>`;
-  const tag = plate.status === "ungarrisoned" ? `<span class="town-plate-tag">${UNGARRISONED_TAG}</span>` : "";
+  const fix = unfedFix(plate);
+  const tag = plate.status === "ungarrisoned" ? `<span class="town-plate-tag">${UNGARRISONED_TAG}</span>`
+    : plate.status === "unfed" ? `<span class="town-plate-tag town-plate-tag-unfed">${UNFED_TAG}</span>${fix ? `<button type="button" class="town-plate-fix" tabindex="-1" data-town-plate-fix>${escapeHtml(fix)} ›</button>` : ""}`
+    : "";
   return `${badge}<span class="town-plate-body"><span class="town-plate-name"></span>${population}${tag}</span>`;
 };
 
@@ -107,6 +120,17 @@ export function createTownNameplates(
   layer.className = "town-plate-layer";
   layer.setAttribute("aria-hidden", "true");
   canvas.parentElement?.append(layer);
+  // The layer lets taps through to the map; only an unfed plate's fix button takes them, and none may reach the
+  // map under it (its window mouseup/mousedown and canvas touches would select the tile). Touch events are only
+  // stopped, never cancelled: a cancelled touchstart/touchend makes the browser skip the click that runs the fix.
+  // The button is tabindex -1 because the layer is aria-hidden; the same fix is in the HUD's tracker row.
+  const onFix = (event: Event): void => {
+    if (!(event.target instanceof Element) || !event.target.closest("[data-town-plate-fix]")) return;
+    if (!event.type.startsWith("touch")) event.preventDefault();
+    event.stopPropagation();
+    if (event.type === "click") requestFoodFix();
+  };
+  for (const type of ["click", "pointerdown", "pointerup", "mousedown", "mouseup", "touchstart", "touchend"]) layer.addEventListener(type, onFix);
   const elements = new Map<string, { el: HTMLElement; html: string }>();
   // Same rival-spacing as the map tint (client-map-facade), so the plate's line matches the territory.
   const ownerColor = createSeparatedOwnerColor((ownerId) => resolveOwnerColor(ownerId, state.playerColors, fallbackOwnerColor), () => state.me);

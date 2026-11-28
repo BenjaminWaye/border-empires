@@ -1,0 +1,29 @@
+/* Tap-to-explain callout for HUD words (client-hud-explain.ts): one line, above everything in the HUD. */
+.hud-explain-callout {
+  position: fixed;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  max-width: min(340px, calc(100vw - 32px));
+  padding: 8px 10px 8px 12px;
+  border: 1px solid #d9b25c;
+  background: rgba(15, 13, 10, 0.97);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+  color: #ece2cc;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.hud-explain-text { flex: 1 1 auto; min-width: 0; }
+.hud-explain-open {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid #d9b25c;
+  background: rgba(217, 178, 92, 0.16);
+  color: #ffe9b0;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}

@@ -10,7 +10,8 @@ describe("manpowerNextBatchHtml", () => {
 
   it("says how far over the cap the pool is, and that regen is paused", () => {
     const html = manpowerNextBatchHtml({ ...base, manpower: 2_800 });
-    expect(html).toContain("Over cap");
+    expect(html).toContain("Reserve");
+    expect(html).not.toContain("Over cap");
     expect(html).toContain("+1,930");
     expect(html).not.toContain("Full");
   });
@@ -27,7 +28,7 @@ describe("manpowerNextBatchHtml", () => {
   // and its explainer said only "every 4 hours", which read as three different schedules.
   it("gives the next batch time over the cap and at full, from the same schedule", () => {
     const at = { ...base, nextRefillAtMs: 3 * 60_000 };
-    expect(manpowerNextBatchHtml({ ...at, manpower: 2_800 })).toContain("Over cap · batch in 0h 3m adds nothing");
+    expect(manpowerNextBatchHtml({ ...at, manpower: 2_800 })).toContain("Reserve · batch in 0h 3m adds nothing");
     expect(manpowerNextBatchHtml({ ...at, manpower: 870 })).toContain("batch in 0h 3m adds nothing");
   });
 

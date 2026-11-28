@@ -45,11 +45,16 @@ export const handleFoodShortageClick = (deps: HudV2Deps, target: Element, fold: 
   const townKey = row?.dataset.hudV2FoodPlots;
   if (!row || !townKey) return false;
   const count = Number(row.dataset.hudV2FoodPlotsCount ?? "1");
-  const queued = queueFarmPlots(deps, townKey, Number.isFinite(count) ? count : 1);
+  queueFarmPlotsAndReport(deps, townKey, Number.isFinite(count) ? count : 1);
+  return true;
+};
+
+/** Queues the plots, says how many went in (or why none could), and centres the map on the town. */
+export const queueFarmPlotsAndReport = (deps: HudV2Deps, townKey: string, count: number): void => {
+  const queued = queueFarmPlots(deps, townKey, count);
   const town = deps.state.tiles.get(townKey);
   if (queued > 0) pushFeed(deps.state, `Queued ${plots(queued)}`, "info", "success");
   else pushFeed(deps.state, (town && townTileOpenPlotReason(deps.state, town)) ?? TOWN_PLOTS_TAKEN_REASON, "error", "warn");
   if (town) focusCamera(deps, town.x, town.y);
   deps.renderHud();
-  return true;
 };

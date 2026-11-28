@@ -1,7 +1,7 @@
 // The honest join card (GDD §6, "Join at any time, with an honest warning"):
 // a running Sector Contest states its day, the manpower a new House lands
-// with, and that difficulty is high, and offers waiting for the next contest
-// instead. "No landing site, no join": NO_LANDING_SITE closes joining, and
+// with, and how hard landing is now (contestDifficulty: the contest's day and
+// the leader's size), and offers waiting for the next contest instead. "No landing site, no join": NO_LANDING_SITE closes joining, and
 // the gateway reserves the player's place in the next contest.
 import { LANDING_MANPOWER_RESERVE, landingManpowerReserve } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
@@ -32,16 +32,56 @@ export const lateJoinFacts = (nowMs: number, seasonStartedAt: number): LateJoinF
 
 const formatCount = (value: number): string => Math.round(value).toLocaleString("en-US");
 
-/** The warning shown above the Land button. */
-export const lateJoinWarningHtml = (facts: LateJoinFacts | undefined, singleContest: boolean): string => {
+export type ContestDifficulty = "low" | "moderate" | "high";
+
+/**
+ * Tiles the largest House holds at which a new House starts to face a real fight, and a hard one. A new House
+ * lands with one town's ground, so a leader in the low hundreds is still close; past ~500 it has room and
+ * manpower to take a newcomer's land. Judgment thresholds (first-15 playtest 2026-11-28: every running contest
+ * said "high", even day 1).
+ */
+export const DIFFICULTY_MODERATE_LEADER_TILES = 150;
+export const DIFFICULTY_HIGH_LEADER_TILES = 500;
+/** Without a leaderboard (older gateway), the day alone: young contests are easy, old ones hard. */
+const DIFFICULTY_MODERATE_DAY = 3;
+const DIFFICULTY_HIGH_DAY = 8;
+
+/** How hard landing is now: by the leader's tiles when known (an old contest is never "low"), else by the day. */
+export const contestDifficulty = (day: number | undefined, leaderTiles: number | undefined): ContestDifficulty => {
+  if (leaderTiles !== undefined && Number.isFinite(leaderTiles)) {
+    if (leaderTiles >= DIFFICULTY_HIGH_LEADER_TILES) return "high";
+    if (leaderTiles >= DIFFICULTY_MODERATE_LEADER_TILES || (day ?? 1) >= DIFFICULTY_HIGH_DAY) return "moderate";
+    return "low";
+  }
+  if (day === undefined) return "high";
+  return day >= DIFFICULTY_HIGH_DAY ? "high" : day >= DIFFICULTY_MODERATE_DAY ? "moderate" : "low";
+};
+
+/** The largest House's tiles on the leaderboard the INIT carried; undefined when it is empty. */
+export const leaderTilesFrom = (leaderboard: { overall?: ReadonlyArray<{ tiles: number }>; byTiles?: ReadonlyArray<{ value: number }> } | undefined): number | undefined => {
+  const tiles = [...(leaderboard?.overall ?? []).map((row) => row.tiles), ...(leaderboard?.byTiles ?? []).map((row) => row.value)].filter(Number.isFinite);
+  return tiles.length > 0 ? Math.max(...tiles) : undefined;
+};
+
+const difficultyLine = (level: ContestDifficulty, leaderTiles: number | undefined): string => {
+  const leader = leaderTiles === undefined ? "" : ` The largest House holds ${formatCount(leaderTiles)} tiles.`;
+  if (level === "low") return `<strong>Difficulty: low.</strong> The contest is young and the Houses are still small.`;
+  if (level === "moderate") return `<strong>Difficulty: moderate.</strong>${leader} Expect border fights.`;
+  return `<strong>Difficulty: high.</strong>${leader} Expect to fight to hold ground.`;
+};
+
+/** The warning shown above the Land button. `leaderTiles`: the largest House's tiles, when the leaderboard is known. */
+export const lateJoinWarningHtml = (facts: LateJoinFacts | undefined, singleContest: boolean, leaderTiles?: number): string => {
   const dayLine = facts ? `<p class="respawn-summary">This Sector Contest is on <strong>day ${facts.day}</strong>.</p>` : "";
   const bonusLine = facts
     ? `<p class="respawn-summary">You land with <strong>${formatCount(facts.landingManpower)} extra manpower</strong>${
         facts.catchUp > 0 ? ` (${formatCount(LANDING_MANPOWER_RESERVE)} landing reserve plus ${formatCount(facts.catchUp)} for the time you missed)` : ""
       }.</p>`
     : "";
-  const waitLine = singleContest ? "" : " You can wait for the next Sector Contest instead.";
-  return `${dayLine}${bonusLine}<p class="respawn-summary"><strong>Difficulty: high.</strong> The Houses already here have had time to dig in. You will have to fight tooth and nail to hold ground.${waitLine}</p>`;
+  const level = contestDifficulty(facts?.day, leaderTiles);
+  // Only a hard landing suggests waiting; a calm one has nothing to wait for.
+  const waitLine = singleContest || level === "low" ? "" : " You can wait for the next Sector Contest instead.";
+  return `${dayLine}${bonusLine}<p class="respawn-summary" data-contest-difficulty="${level}">${difficultyLine(level, leaderTiles)}${waitLine}</p>`;
 };
 
 /** The second button on the join card: wait for the next contest (or, on a hosted sector, simply not now). */

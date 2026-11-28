@@ -93,6 +93,22 @@
   color: #1c1206;
   background: #f0b04f;
 }
+.town-plate-tag-unfed {
+  color: #fff4ec;
+  background: #c2412c;
+}
+/* An unfed plate's one-tap FOOD fix: the only part of the plate layer that takes taps. */
+.town-plate-fix {
+  pointer-events: auto;
+  min-height: 20px;
+  padding: 2px 7px;
+  border: 1px solid #f0b04f;
+  background: rgba(240, 176, 79, 0.16);
+  color: #ffe9b0;
+  font: 700 10px/1 var(--sp-font-mono, "Space Mono", monospace);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
 .town-plate-badge[data-status="ungarrisoned"] {
   border-color: #f0b04f;
   box-shadow: 0 0 0 2px rgba(240, 176, 79, 0.35), 0 4px 8px rgba(0, 0, 0, 0.55);

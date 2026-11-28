@@ -1,7 +1,7 @@
 import type { ClientState } from "./client-state/client-state.js";
 import type { FeedType, FeedSeverity } from "./client-types.js";
 import { renderSeasonLobbyPanelHtml, bindSeasonLobbyPanel } from "./client-season-lobby-panel.js";
-import { joinClosedHtml, lateJoinFacts, lateJoinWarningHtml, waitButtonHtml } from "./client-join-season-late-join/client-join-season-late-join.js";
+import { joinClosedHtml, lateJoinFacts, lateJoinWarningHtml, leaderTilesFrom, waitButtonHtml } from "./client-join-season-late-join/client-join-season-late-join.js";
 import { sectorListHtml } from "./client-sector-list/client-sector-list.js";
 import { syncJoinSeasonReopenButton } from "./client-join-season-reopen/client-join-season-reopen.js";
 import { syncLandingWaitNotice } from "./client-landing-wait/client-landing-wait.js";
@@ -35,6 +35,7 @@ type JoinSeasonOverlayDeps = {
     | "seasonStartedAt"
     | "singleContest"
     | "joinSeasonClosedMessage"
+    | "leaderboard"
     | "sectorListRows"
     | "sectorListLoadedFor"
     | "me"
@@ -329,7 +330,7 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
 
   clearCountdownTimer();
   // The contest is running. GDD §6: the player chooses, after an honest
-  // warning (contest day, landing manpower, high difficulty), to land now
+  // warning (contest day, landing manpower, difficulty from the day and the leader's size), to land now
   // or wait for the next contest. This replaced sending every player
   // straight in. A NO_LANDING_SITE reply turns the card into the closed one.
   // The running Sector Contests, full ones greyed out, and funding a new one when none has room.
@@ -361,7 +362,7 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   overlayEl.innerHTML = joinNowHtml({
     joining,
     waitHintHtml: joining ? `<p id="join-season-wait-hint" class="season-lobby-join-wait-hint">${currentJoinWaitHint()}</p>` : "",
-    warningHtml: lateJoinWarningHtml(lateJoinFacts(Date.now(), state.seasonStartedAt), state.singleContest),
+    warningHtml: lateJoinWarningHtml(lateJoinFacts(Date.now(), state.seasonStartedAt), state.singleContest, leaderTilesFrom(state.leaderboard)),
     waitButtonHtml: waitButtonHtml(state.singleContest),
     sectorListHtml: listHtml,
     landDisabled

@@ -139,7 +139,7 @@ describe("tracker FOOD shortage", () => {
     const open = trackerHtml({ ...base, food, foodOpen: true });
     expect(open).toContain("Scout for food");
     expect(open).toContain(`data-hud-v2-food-plots="10,10" data-hud-v2-food-plots-count="6"`);
-    expect(open.indexOf("Scout for food")).toBeLessThan(open.indexOf("Farm Plots"));
+    expect(open.indexOf("Scout for food")).toBeLessThan(open.indexOf("plots free"));
     expect(foodShortageHtml(food, false)).not.toMatch(/→/);
     expect(trackerHtml(base)).not.toContain("Next step");
     expect(trackerSummaryHtml({ ...base, food })).toContain(`title="Short 5 FOOD">Next ›`);

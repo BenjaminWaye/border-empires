@@ -5,6 +5,7 @@
 import { formatCoinPerDay, spendableCoin, type SlotResource } from "@border-empires/shared";
 import { resourceSimpleIconUrl } from "../client-resource-icons/client-resource-icons.js";
 import { INTEGRITY_HINT } from "./client-hud-v2-hints.js";
+import { hudExplainAttr, type HudExplainKey } from "../client-hud-explain/client-hud-explain.js";
 
 export const NET_COIN_TITLE = "Net coin per day: income less coin upkeep";
 
@@ -49,10 +50,10 @@ const chipNumberHtml = (value: number): string => {
 /** Over capacity is the only warning state: full slots are normal. */
 export const slotChipState = (used: number, total: number): "normal" | "over" => (used > total ? "over" : "normal");
 
-const chip = (key: string, label: string, valueHtml: string, iconUrl?: string, title?: string): string => {
+const chip = (key: string, label: string, valueHtml: string, iconUrl?: string, title?: string, explain?: HudExplainKey): string => {
   const icon = iconUrl ? `<img class="hud-v2-chip-icon" src="${iconUrl}" alt="" draggable="false">` : "";
   const hover = title ? ` title="${title}"` : "";
-  return `<button type="button" class="hud-v2-chip" data-hud-v2-chip="${key}"${hover}><span class="hud-v2-chip-label">${icon}<span class="hud-v2-chip-name">${label}</span></span>${valueHtml}</button>`;
+  return `<button type="button" class="hud-v2-chip" data-hud-v2-chip="${key}"${explain ? hudExplainAttr(explain) : ""}${hover}><span class="hud-v2-chip-label">${icon}<span class="hud-v2-chip-name">${label}</span></span>${valueHtml}</button>`;
 };
 
 export const resourceBarHtml = (input: ResourceBarInput): string => {
@@ -84,7 +85,7 @@ export const resourceBarHtml = (input: ResourceBarInput): string => {
   }).join("");
   const integrity = input.integrityPct === undefined
     ? ""
-    : chip("integrity", "Integrity", input.pending ? PENDING_HTML : `<span class="hud-v2-chip-value">${Math.round(input.integrityPct)}%</span>`, undefined, INTEGRITY_HINT);
+    : chip("integrity", "Integrity", input.pending ? PENDING_HTML : `<span class="hud-v2-chip-value">${Math.round(input.integrityPct)}%</span>`, undefined, INTEGRITY_HINT, "integrity");
   const gear = `<button type="button" class="hud-v2-gear" data-hud-v2-open="settings" aria-label="Settings" title="Settings · Esc"><span aria-hidden="true">⚙</span><img src="/icons/nav/settings.svg" alt="" draggable="false"></button>`;
   return `${coin}${slots}<span class="hud-v2-sep" aria-hidden="true"></span>${integrity}${gear}`;
 };
