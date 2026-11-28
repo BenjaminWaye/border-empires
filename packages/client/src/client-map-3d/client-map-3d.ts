@@ -66,7 +66,7 @@ import { createDemoTileSpecs } from "./client-map-3d-demo-tiles.js";
 import { createQueuedTileMarkerPool } from "./client-map-3d-queued-marker-pool.js";
 import { createBattleFlashOverlay3D } from "../client-battle-warnings/client-battle-flash-3d.js";
 import { activeBattleFlashes, battleWarnings } from "../client-battle-warnings/client-battle-warnings.js";
-import { compileSceneShaders, createFirstFrameSignal } from "./client-map-3d-compile-shaders.js";
+import { compileSceneShaders, createFirstFrameSignal, renderSkippingEmptyInstances } from "./client-map-3d-compile-shaders.js";
 import { createSlotResourceBadgeOverlays } from "../client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
 import { createObservatoryCooldownBadgeOverlay } from "../client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
 import { createNameDecalForMap } from "../client-map-3d-name-decal/client-map-3d-name-decal.js";
@@ -142,7 +142,7 @@ const OVERLAY_RISE_ABOVE_HEIGHTFIELD = 0.012;
 export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainRendererDeps) => {
   await deps.onStage?.("graphics");
   const firstFrame = createFirstFrameSignal();
-  const { glCanvas, renderer, contextGuard, qualityTier, frameGovernor } = createThreeRenderTarget(deps.canvas, deps.onContextLost);
+  const { glCanvas, renderer, contextGuard, qualityTier } = createThreeRenderTarget(deps.canvas, deps.onContextLost);
 
   const scene = new Scene();
   const atmosphere = createAtmosphere(scene, renderer);
@@ -1144,7 +1144,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     musterOverlay.tick(nowMs); fortOverlay.tick(nowMs); barbarianOverlay.tick(nowMs, planetaryDefenseEngagedTileKeys(deps.state, deps.keyFor, nowMs, Date.now()));
     syncBattleOverlayFx(deps.state, deps.keyFor, heightfield, deps.effectiveOverlayColor, battleOverlayFx, nowMs, sceneOrigin.camX, sceneOrigin.camY, beamedSiegeBattles, farmlandOverlay.standLiftAt);
     syncMusterTransitOverlay(deps.state, deps.effectiveOverlayColor, heightfield, musterTransitOverlay, sceneOrigin.camX, sceneOrigin.camY, deps.keyFor); dockRouteOverlay.tick(nowMs);
-    frameGovernor.renderFrame(scene, camera, nowMs); // backs quality off live if the GPU can't keep up (client-map-3d-frame-governor.ts)
+    renderSkippingEmptyInstances(renderer, scene, camera);
     rafId = requestAnimationFrame(renderLoop);
     firstFrame.markRendered();
   };
