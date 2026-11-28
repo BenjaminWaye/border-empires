@@ -101,6 +101,8 @@ export type TileMenuView = {
   overviewLines: TileOverviewLine[];
   actions: TileActionDef[];
   buildings: TileActionDef[];
+  /** Buildings hidden for want of research, greyed with the research that unlocks them; only the town screen lists them. */
+  lockedBuildings?: TileActionDef[];
   crystal: TileActionDef[];
   progress?: TileMenuProgressView;
   /** Construction running on the tile, then its queued build: `progress` shows only one, so a Fort building with a support building queued behind it needs both. */

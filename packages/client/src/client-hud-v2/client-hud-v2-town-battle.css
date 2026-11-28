@@ -61,6 +61,13 @@
 .v2t-build-name { font-family: var(--v2-display); font-size: 14px; font-weight: 700; letter-spacing: 0.04em; }
 .v2t-build-detail { font-size: 13px; color: var(--v2-soft); }
 .v2t-build-cost { font-family: var(--v2-mono); font-size: 11px; color: var(--v2-soft); }
+/* A building locked by research: greyed, with the research as a link under it (client-hud-v2-build-list.ts). */
+.v2t-build-item { border-bottom: 1px solid #241f17; }
+.v2t-build-item > .v2t-build { border-bottom: 0; padding-bottom: 2px; }
+.v2t-build-locked.v2t-build-off { opacity: 1; }
+.v2t-build-locked .v2t-build-ico, .v2t-build-locked .v2t-build-text { opacity: 0.5; filter: grayscale(1); }
+.v2t-build-tech { display: block; width: 100%; padding: 0 18px 8px 78px; background: transparent; border: 0; text-align: left; font-family: var(--v2-mono); font-size: 11px; color: var(--v2-gold); cursor: pointer; overflow-wrap: anywhere; }
+.v2t-build-tech:hover { color: var(--v2-gold-hi); text-decoration: underline; }
 .v2t-place { display: grid; gap: 8px; padding: 14px; border-color: var(--v2-edge-strong); }
 .v2t-place-name { font-family: var(--v2-display); font-size: 14px; font-weight: 700; letter-spacing: 0.06em; color: var(--v2-gold-hi); }
 /* The town screen docks it at the foot of the build panel, below the scrolling list. */
@@ -197,7 +204,9 @@
 .v2t-plot-open { background: color-mix(in srgb, var(--v2-green-hi) 22%, transparent); border: 2px solid var(--v2-green-hi); }
 .v2t-plot-locked { background: transparent; border: 1px dashed var(--v2-muted); }
 .v2t-plot-legend { display: flex; flex-wrap: wrap; gap: 2px 10px; }
-.v2t-plot-key { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+/* The card wraps inside its half of the stats grid rather than running past the panel's edge, where it was cut short. */
+.v2t-plot-key { display: inline-flex; align-items: center; gap: 4px; }
+.v2t-plots { min-width: 0; overflow-wrap: anywhere; }
 .v2t-plot-key .v2t-plot { width: 8px; height: 8px; }
 /* Steady highlights, not animations: the town screen repaints as its numbers tick, which would restart them. */
 .v2t-plot-new { box-shadow: 0 0 0 2px var(--v2-gold-hi), 0 0 8px var(--v2-gold-hi); }

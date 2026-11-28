@@ -62,6 +62,27 @@ export const presentTechLockedTileAction = (
 };
 
 /**
+ * A building the tile menu hides for want of research (presentTechLockedTileAction returned undefined), as a
+ * greyed row naming the research and linking to it. Only the town screen lists these: players never saw what a
+ * town could grow into, because locked buildings were hidden (owner, First-15 round 1). Undefined when the row is
+ * hidden for another reason (a structure already on the tile, a building the town already has) or when nothing
+ * the player can research unlocks it.
+ */
+export const techLockedBuildingRow = (
+  action: TileActionDef,
+  state: TileActionFilterState,
+  requiredTechForTileAction: (actionId: TileActionDef["id"]) => string | undefined
+): TileActionDef | undefined => {
+  const requiredTech = requiredTechForTileAction(action.id);
+  if (!requiredTech || state.techIds.includes(requiredTech)) return undefined;
+  // The logic layer checks other blockers before the tech, so a reason that isn't a "Requires ..." means more than research is missing.
+  if (action.disabled && !action.disabledReason?.startsWith("Requires ")) return undefined;
+  const techName = state.techCatalog?.find((tech) => tech.id === requiredTech)?.name;
+  if (!techName && !action.disabledReason) return undefined;
+  return { ...action, disabled: true, disabledReason: techName ? `Requires ${techName}` : action.disabledReason, techLinkId: requiredTech };
+};
+
+/**
  * Opens the Manifest panel on one tech's detail card (desktop side panel, or
  * the mobile tech sheet). Sets panel state directly rather than via the
  * toggling setActivePanel, so it never closes an already-open panel. The

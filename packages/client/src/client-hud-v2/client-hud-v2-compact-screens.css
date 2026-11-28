@@ -126,6 +126,7 @@ body.hud-v2-compact .v2t-tabs { flex-wrap: nowrap; overflow-x: auto; padding: 0 
 body.hud-v2-compact .v2t-tab { flex: none; height: 36px; }
 body.hud-v2-compact .v2t-build { min-height: 56px; padding: 6px 12px; }
 body.hud-v2-compact .v2t-build-ico { width: 40px; height: 40px; }
+body.hud-v2-compact .v2t-build-tech { min-height: 32px; padding: 0 12px 8px 64px; font-size: 12px; }
 body.hud-v2-compact .v2t-work { padding: 0 12px 8px; }
 body.hud-v2-compact .v2t-job-acts .v2s-btn { height: 40px; }
 /* The town's build panel is ~260px on a 667px phone: work, "Built here" and the docked Place squeezed the
