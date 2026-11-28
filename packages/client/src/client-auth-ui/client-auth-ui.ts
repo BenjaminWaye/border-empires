@@ -65,6 +65,10 @@ export const syncAuthPanelState = (
 ): void => {
   deps.authPanelEl.dataset.mode = state.profileSetupRequired ? "setup" : deps.authEmailLinkSentTo ? "sent" : "login";
   deps.authEmailSentAddressEl.textContent = deps.authEmailLinkSentTo;
+  // The colour picker only shows in setup mode. This runs on every HUD render,
+  // in game too, so checking colours for a hidden picker was pure cost
+  // (bug report bc313812). Entering setup runs it again with fresh colours.
+  if (!state.profileSetupRequired) return;
   const inUse = colorsInUseFor(state);
   syncColorSwatchButtons(deps.authColorPresetButtons, state.suggestedColors, deps.authProfileColorEl.value, inUse);
   // One tap on the suggestion applies it (playtest 2026-11-28: players typed "Try: #..." in by hand).

@@ -1,4 +1,4 @@
-import { empireColorRejection, nearestFreeEmpireColor, type EmpireColorEntry, type EmpireColorsInUse } from "@border-empires/shared";
+import { empireColorChecker, nearestFreeEmpireColor, type EmpireColorEntry, type EmpireColorsInUse } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 
 // Marks colours in the two empire-colour pickers ("Found your first standard"
@@ -57,11 +57,38 @@ export const colorsInUseFor = (state: Pick<ClientState, "me" | "playerColors" | 
   return { exact: serverColorsInUse.exact, empires };
 };
 
+// One checker per set of colours in use. empireColorRejection builds a fresh
+// checker per call, and on a full map every "too close" verdict scans all
+// ~1,800 candidates against every empire (CIEDE2000) to confirm the map is
+// full. The pickers check each swatch plus the custom colour on every HUD
+// render, so on a crowded sector that rescan cost ~300 ms per render and froze
+// the game on phones (bug report bc313812). The checker memoises the scan, so
+// it now runs once per change to the colours in use.
+type CachedChecker = { readonly key: string; readonly checker: ReturnType<typeof empireColorChecker>; readonly suggestions: Map<string, string | undefined> };
+let cachedChecker: CachedChecker | undefined;
+
+const inUseKey = (inUse: EmpireColorsInUse): string =>
+  `${inUse.exact.join(",")}|${inUse.empires.map((empire) => `${empire.playerId}=${empire.color}=${empire.name ?? ""}`).join(",")}`;
+
+const cachedCheckerFor = (inUse: EmpireColorsInUse): CachedChecker => {
+  const key = inUseKey(inUse);
+  if (cachedChecker?.key !== key) cachedChecker = { key, checker: empireColorChecker(inUse), suggestions: new Map() };
+  return cachedChecker;
+};
+
 /** Why `hex` can't be picked, or undefined when it can. */
 export const colorClashReason = (hex: string, inUse: EmpireColorsInUse): string | undefined => {
   const color = hex.trim().toLowerCase();
   if (!HEX6.test(color)) return undefined;
-  return empireColorRejection(color, inUse)?.message;
+  return cachedCheckerFor(inUse).checker.rejection(color)?.message;
+};
+
+/** The colour the gateway would suggest instead of `hex`, memoised with the checker. */
+const suggestedColorFor = (hex: string, inUse: EmpireColorsInUse): string | undefined => {
+  const { suggestions } = cachedCheckerFor(inUse);
+  const color = hex.trim().toLowerCase();
+  if (!suggestions.has(color)) suggestions.set(color, nearestFreeEmpireColor(color, inUse));
+  return suggestions.get(color);
 };
 
 /** Greys out and labels swatches whose colour the gateway would refuse. */
@@ -92,7 +119,7 @@ export const syncColorClashNote = (
   if (clashEl) {
     clashEl.textContent = reason ?? "";
     clashEl.hidden = reason === undefined;
-    const suggestion = reason && onApply ? nearestFreeEmpireColor(color, inUse) : undefined;
+    const suggestion = reason && onApply ? suggestedColorFor(color, inUse) : undefined;
     if (suggestion && onApply) {
       const tryBtn = document.createElement("button");
       tryBtn.type = "button";
