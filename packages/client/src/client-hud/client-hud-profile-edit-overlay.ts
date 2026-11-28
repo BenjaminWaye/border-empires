@@ -13,7 +13,7 @@ import type { Auth } from "firebase/auth";
 import { bindCosmeticsCard } from "../client-cosmetics/client-cosmetics-card.js";
 import { bindCrestEditor, cancelCrestSave, crestEditorHtml, saveCrest } from "../client-profile-edit-crest/client-profile-edit-crest.js";
 import { syncColorSwatchButtons } from "../client-auth-ui/client-auth-ui.js";
-import { rivalEmpireColors, syncColorClashNote } from "../client-color-clash/client-color-clash.js";
+import { colorsInUseFor, syncColorClashNote } from "../client-color-clash/client-color-clash.js";
 import { hideBreakPactSheet, showBreakPactSheet, type BreakPactSheetOptions } from "../client-break-pact-sheet/client-break-pact-sheet.js";
 import { bindProfileNameField, profileNameCountHtml } from "../client-profile-name-field/client-profile-name-field.js";
 import { awaitProfileEditOutcome } from "../client-profile-edit-outcome/client-profile-edit-outcome.js";
@@ -136,9 +136,13 @@ export const bindProfileEditModal = (args: {
   bindProfileNameField(nameInput, { onUserInput: () => { setStatus(""); refreshPreview(); }, emptyHint: PROFILE_EDIT_NAME_EMPTY_HINT });
 
   const syncSwatches = (): void => {
-    const rivals = rivalEmpireColors(state);
-    syncColorSwatchButtons(swatchButtons, state.suggestedColors, colorInput.value, rivals);
-    syncColorClashNote(overlayEl.querySelector<HTMLElement>("[data-color-clash]"), colorInput.value, rivals, state.playerColors.get(state.me));
+    const inUse = colorsInUseFor(state);
+    syncColorSwatchButtons(swatchButtons, state.suggestedColors, colorInput.value, inUse);
+    const applySuggestion = (hex: string): void => {
+      colorInput.value = hex;
+      syncSwatches();
+    };
+    syncColorClashNote(overlayEl.querySelector<HTMLElement>("[data-color-clash]"), colorInput.value, inUse, state.playerColors.get(state.me), applySuggestion);
     // The clash check re-enables swatches; a spent colour change keeps them all off.
     if (profileChangeUsed("color") === true) swatchButtons.forEach((btn) => { btn.disabled = true; });
     refreshPreview();

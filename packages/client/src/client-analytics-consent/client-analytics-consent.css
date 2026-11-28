@@ -1,0 +1,58 @@
+/* The analytics consent prompt (client-analytics-consent-ui.ts): a strip at
+ * the bottom, readable on a phone first. It sits below the game's sheets and
+ * dialogs (7000-9999), so it never hides a Confirm button; they cover it
+ * while open. The two answers are the same size and style: neither is the
+ * "easy" one. */
+.analytics-consent {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 6500;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(224, 184, 74, 0.45);
+  background: rgba(12, 16, 28, 0.97);
+  color: #e8ecf6;
+  font: 400 14px/1.45 "Segoe UI", Arial, sans-serif;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+.analytics-consent-text {
+  margin: 0 0 12px;
+}
+
+.analytics-consent-text a {
+  color: #e0b84a;
+}
+
+.analytics-consent-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.analytics-consent-actions .panel-btn {
+  min-height: 44px;
+  margin: 0;
+}
+
+.analytics-consent-setting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.analytics-consent-setting .panel-btn {
+  margin: 0;
+}
+
+/* On a phone it ends above the tab bar (client-hud-v2-compact-overlays.css), so the tabs stay usable while it waits. */
+body.hud-v2-compact .analytics-consent {
+  bottom: calc(var(--v2c-bottom) + 8px);
+}

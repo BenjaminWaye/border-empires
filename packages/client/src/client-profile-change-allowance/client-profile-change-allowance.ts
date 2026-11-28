@@ -6,6 +6,8 @@
 // ("Name · 1 change left", "Crest · used") and disable a used one.
 // Unknown (an older gateway, or before the reply) shows no label and never disables.
 
+import { applyServerColorsInUse } from "../client-color-clash/client-color-clash.js";
+
 export type ProfileChangeField = "name" | "color" | "crest";
 
 type Allowance = Partial<Record<ProfileChangeField, boolean>>;
@@ -45,9 +47,10 @@ export const profileChangeAllowanceLabel = (field: ProfileChangeField): string =
   return `${LABEL[field]} · ${spent ? "used" : "1 change left"}`;
 };
 
-/** INIT and PLAYER_UPDATE: the suggested colour swatches and the allowance flags (lifted out of the over-limit network files). */
+/** INIT and PLAYER_UPDATE: the suggested colour swatches, the colours in use they were checked against, and the allowance flags (lifted out of the over-limit network files). */
 export const applyPlayerProfileFields = (state: { suggestedColors: string[] }, source: Record<string, unknown>, init: boolean): void => {
   if (Array.isArray(source.suggestedColors)) state.suggestedColors = source.suggestedColors as string[];
+  applyServerColorsInUse(source, init);
   if (init) resetProfileChangeAllowance(source);
   else applyProfileChangeAllowance(source);
 };

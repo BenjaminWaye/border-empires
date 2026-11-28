@@ -10,6 +10,8 @@ import type { HostingAlert, PaymentProvider, ServerProvider } from "../providers
 import { createWithdrawalService } from "./hosting-withdrawal.js";
 import { createFundingReconciler } from "./funding-reconciler.js";
 import { creationRetryDelayMs, type HostingConfig } from "./hosting-config.js";
+import { parseContestResults, type HostedResultsStore } from "../hosting-results/hosted-results.js";
+import { IDLE_WARNING_LEAD_MS, IDLE_WARNING_MAX_WAIT_MS, type HostingMailer } from "../hosting-email/hosting-mailer.js";
 
 export type HostingReconcilerDeps = {
   store: HostingStore;
@@ -20,7 +22,16 @@ export type HostingReconcilerDeps = {
   now: () => number;
   /** Called once when a sector opens (the "your sector is ready" email). Must not throw. */
   onSectorOpened?: (sector: SectorRecord) => void;
+  /** Player emails (hosting-email): sent on every pass, and the warning before an idle sector closes. */
+  mailer?: HostingMailer;
+  /** Where a sector's results are saved before its server is deleted (plan step 8d). */
+  results?: HostedResultsStore;
+  /** After each pass: how many emails were sent and how many wait, or why the pass failed. For the log. */
+  onEmailPass?: (result: { sent: number; pending: number; addresses: number } | { error: string }) => void;
 };
+
+/** How long a server is kept while its results cannot be read, before it is deleted without them. */
+export const RESULTS_EXPORT_GRACE_MS = 3 * 24 * 60 * 60_000;
 
 const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error)).slice(0, 500);
 
@@ -95,8 +106,40 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
     }
   };
 
-  /** Deletes the server of a sector that no longer needs one. Without `then`, the row keeps its state. */
+  /**
+   * Saves the results of a sector that opened before its server goes, and
+   * says whether the server may now be deleted. A crowned copy is final and
+   * was usually saved at crowning; otherwise the summary is read now. A server
+   * whose results cannot be read is kept, and the owner told when this starts
+   * (plan section 10), for RESULTS_EXPORT_GRACE_MS; after that it is deleted
+   * anyway and the owner told the results are lost, so a dead server is not
+   * billed for ever.
+   */
+  const saveResults = async (sector: SectorRecord, now: number): Promise<boolean> => {
+    const { results } = deps;
+    if (!results || sector.openedAt === undefined || !sector.hostname || results.hasCrowned(sector.sectorId)) return true;
+    try {
+      const read = parseContestResults(await deps.servers.getContestSummary(sector.hostname));
+      // An ended contest has a winner; a summary without one is not that contest's.
+      if (sector.state === "ended" && !read.crowned) throw new Error("the summary of an ended contest names no winner");
+      results.save(sector.sectorId, read, now);
+      results.clearFailure(sector.sectorId);
+      return true;
+    } catch (error) {
+      // An earlier reading (a closure whose delete failed) is better than none.
+      if (results.has(sector.sectorId)) return true;
+      const since = results.noteFailure(sector.sectorId, now);
+      if (since === now) deps.alert("results_export_failed", { sectorId: sector.sectorId, state: sector.state, error: errorText(error) });
+      if (now - since < RESULTS_EXPORT_GRACE_MS) return false;
+      deps.alert("results_export_abandoned", { sectorId: sector.sectorId, state: sector.state, error: errorText(error) });
+      results.clearFailure(sector.sectorId);
+      return true;
+    }
+  };
+
+  /** Deletes the server of a sector that no longer needs one, after saving its results. Without `then`, the row keeps its state. */
   const deleteServer = async (sector: SectorRecord, now: number, then?: { state: "deleted"; endedAt?: number }): Promise<boolean> => {
+    if (sector.serverRef && !(await saveResults(sector, now))) return false;
     try {
       if (sector.serverRef) await deps.servers.deleteServer(sector.serverRef);
       return store.transitionSector(sector.sectorId, [sector.state], { ...then, serverRef: null, lastError: null }, now);
@@ -104,6 +147,17 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
       store.transitionSector(sector.sectorId, [sector.state], { lastError: errorText(error) }, now);
       deps.alert("sector_teardown_failed", { sectorId: sector.sectorId, error: errorText(error) });
       return false;
+    }
+  };
+
+  /** At crowning, the summary is the final one: saved then, not at teardown days later. A failure is tried again at teardown. */
+  const saveCrownedResults = async (sector: SectorRecord, now: number): Promise<void> => {
+    if (!deps.results || !sector.hostname) return;
+    try {
+      const read = parseContestResults(await deps.servers.getContestSummary(sector.hostname));
+      if (read.crowned) deps.results.save(sector.sectorId, read, now);
+    } catch {
+      // Teardown reads it again, and alerts if it still cannot.
     }
   };
 
@@ -120,7 +174,7 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
     }
     if (sector.lastError !== undefined) store.transitionSector(sector.sectorId, ["open"], { lastError: null }, now);
     if (status.ended) {
-      store.transitionSector(sector.sectorId, ["open"], { state: "ended", endedAt: now }, now);
+      if (store.transitionSector(sector.sectorId, ["open"], { state: "ended", endedAt: now }, now)) await saveCrownedResults(sector, now);
       return;
     }
     // There is no time limit on a contest. What stops a forgotten sector
@@ -128,8 +182,27 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
     // Counted from opening when no human has ever come. No look-around
     // period follows, since there is nobody to look.
     const lastVisit = Math.max(status.lastHumanVisitAt ?? 0, sector.openedAt ?? sector.createdAt);
+    if (now - lastVisit < config.idleCloseMs - IDLE_WARNING_LEAD_MS) return;
+    // Members are warned two days ahead (Terms of Sale section 5): the sector
+    // closes no sooner than two days after the warning went out. While it
+    // cannot go out (the email provider is down) the sector waits, up to
+    // IDLE_WARNING_MAX_WAIT_MS; with nobody reachable it closes two days after
+    // the warning was written. Either way the owner is told it closed unwarned.
+    let unwarned = 0;
+    if (deps.mailer) {
+      const warning = deps.mailer.warnIdle(sector, lastVisit, Math.max(lastVisit + config.idleCloseMs, now + IDLE_WARNING_LEAD_MS), now);
+      if (warning?.sentAt !== undefined) {
+        if (now - warning.sentAt < IDLE_WARNING_LEAD_MS) return;
+      } else if (warning) {
+        const stillTrying = deps.mailer.canSend() && warning.pending > 0 && now - warning.writtenAt < IDLE_WARNING_MAX_WAIT_MS;
+        if (stillTrying || now - warning.writtenAt < IDLE_WARNING_LEAD_MS) return;
+        unwarned = 1;
+      }
+    }
     if (now - lastVisit < config.idleCloseMs) return;
-    if (await deleteServer(sector, now, { state: "deleted", endedAt: now })) deps.alert("sector_closed_idle", { sectorId: sector.sectorId, idleDays: Math.floor((now - lastVisit) / 86_400_000) });
+    if (await deleteServer(sector, now, { state: "deleted", endedAt: now })) {
+      deps.alert("sector_closed_idle", { sectorId: sector.sectorId, idleDays: Math.floor((now - lastVisit) / 86_400_000), unwarned });
+    }
   };
 
   const reportRunningCount = (): void => {
@@ -161,6 +234,14 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
         await withdrawals.retryPendingRefunds();
       } catch {
         // Each failure is alerted where it happens; the next pass tries again.
+      }
+      if (deps.mailer) {
+        try {
+          deps.onEmailPass?.(await deps.mailer.runOnce());
+        } catch (error) {
+          // A failed send is recorded per email; this is anything else. The next pass tries again.
+          deps.onEmailPass?.({ error: errorText(error) });
+        }
       }
       reportRunningCount();
       store.prunePaymentEvents(deps.now() - config.paymentEventRetentionMs);
