@@ -2452,7 +2452,7 @@ export class SimulationRuntime {
   private playerStateUpdateContext(): RuntimePlayerStateUpdateContext {
     return {
       players: this.state.players,
-      mapHintsForPlayer: id => playerMapHints({ player: this.state.players.get(id), tiles: this.state.tiles, summaryForPlayer: pid => this.summaryForPlayer(pid), relicIndex: this.relicMapHintIndex, neutralTileKeys: this.neutralBeaconTileKeys, isExplored: (pid, x, y) => this.exploredTiles.isExplored(pid, x, y) }), exploredCountForPlayer: (pid) => this.exploredTiles.exploredCount(pid), now: () => this.now(),
+      mapHintsForPlayer: id => playerMapHints({ player: this.state.players.get(id), tiles: this.state.tiles, summaryForPlayer: pid => this.summaryForPlayer(pid), relicIndex: this.relicMapHintIndex, neutralTileKeys: this.neutralBeaconTileKeys, isExplored: (pid, x, y) => this.exploredTiles.isExplored(pid, x, y), campLeadFor: (pid) => this.scoutDrones.campLeadFor(pid) }), exploredCountForPlayer: (pid) => this.exploredTiles.exploredCount(pid), now: () => this.now(),
       lastEmittedStorageCapByPlayer: this.lastEmittedStorageCapByPlayer,
       hasActiveOwnedAfc: id => [...this.summaryForPlayer(id).ownedAfcTileKeys].some(key => this.state.tiles.get(key)?.afc?.status === "active"),
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),

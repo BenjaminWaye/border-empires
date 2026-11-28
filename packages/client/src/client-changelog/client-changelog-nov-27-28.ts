@@ -4,7 +4,7 @@ import { GUIDE_ISLAND_DOCK_ENTRY } from "./client-changelog-guide-island-dock.js
 import { ATTACK_EN_ROUTE_ENTRY } from "./client-changelog-attack-en-route.js";
 import { INSURGENTS_ENTRY } from "./client-changelog-insurgents.js";
 import { SETTINGS_MENU_TIDY_ENTRY } from "./client-changelog-settings-menu-tidy.js";
-import { EXPLORE_CAMP_LEAD_ENTRY } from "./client-changelog-explore-camp-lead.js";
+import { GUIDE_FIRST_BATTLE_ENTRY } from "./client-changelog-guide-first-battle.js";
 import { LANDING_WAIT_ENTRY } from "./client-changelog-landing-wait.js";
 import { ANALYTICS_CONSENT_ENTRY } from "./client-changelog-analytics-consent.js";
 import { NUMBER_AGREEMENT_ENTRY } from "./client-changelog-number-agreement.js";
@@ -16,10 +16,10 @@ export const NOV_27_28_CHANGELOG: ClientChangelogEntry[] = [
   { ...ATTACK_EN_ROUTE_ENTRY, createdAt: 1795779638841, },
   { ...INSURGENTS_ENTRY, createdAt: 1795780690085, },
   { ...SETTINGS_MENU_TIDY_ENTRY, createdAt: 1795792563517, },
-  { ...EXPLORE_CAMP_LEAD_ENTRY, createdAt: 1795823532423, },
   { ...LANDING_WAIT_ENTRY, createdAt: 1795824207646, },
   { ...ANALYTICS_CONSENT_ENTRY, createdAt: 1795825991167, },
   { ...POPUPS_WAIT_THEIR_TURN_ENTRY, createdAt: 1795849065496, },
   { ...NUMBER_AGREEMENT_ENTRY, createdAt: 1795849095118, },
   { ...FIRST15_GUIDE_CAMERA_ENTRY, createdAt: 1795851462394, },
+  { ...GUIDE_FIRST_BATTLE_ENTRY, createdAt: 1795865424860, },
 ];

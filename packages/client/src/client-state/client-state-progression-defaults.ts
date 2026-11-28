@@ -12,6 +12,8 @@ export const createInitialProgressionState = () => ({
   autoSettle: { status: "unloaded" } as import("../client-auto-settle-prompt/client-auto-settle-prefs.js").ClientAutoSettleState,
   relicMapHintsRevision: 0,
   guideTownLead: undefined as import("@border-empires/shared").GuideTownLead | undefined,
+  /** The guide's camp lead (PLAYER_UPDATE guideCampLead): the nearest live Insurgent camp never seen; its guided flight is free. */
+  guideCampLead: undefined as import("@border-empires/shared").GuideCampLead | undefined,
   relicMapHints: new Map<string, import("@border-empires/shared").RelicMapHint>(),
   wonderLastFreeRushBuyAt: undefined as number | undefined, // Quickforge: ms of last discounted rush-buy (0/undefined = unused) -- rush-buy price preview only, server is price-authoritative
   techChoices: [] as string[],

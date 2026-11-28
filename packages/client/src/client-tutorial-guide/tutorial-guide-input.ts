@@ -25,7 +25,9 @@ import { bestRelayBeaconSites } from "../client-relay-beacon-site/client-relay-b
 import { GUIDE_EXPLORE_MAX_FLIGHTS, guideExploreTarget, guideScoutStatus } from "./tutorial-guide-explore-target.js";
 import { scoutChargesReady, scoutLaunchAfc } from "../client-scout-drone/client-scout-drone-plan.js";
 import { leadRouteLegs } from "../client-scout-drone/client-scout-drone-lead-route.js";
-import { guideAttackLaunched, guideAttackTargets, guideTruceStage, type GuideAttackCandidate, type GuideContestState } from "./tutorial-guide-contest-input.js";
+import { guideAllianceSeen, guideAllianceStanding, guideAttackLaunched, guideAttackTargets, guideTruceStage, type GuideAttackCandidate, type GuideContestState } from "./tutorial-guide-contest-input.js";
+import { guideCampOf, resetGuideCampForTests, type GuideCampState } from "./tutorial-guide-camp-input.js";
+import { fealtyLookupFor } from "../client-fealty/client-fealty.js";
 
 export type GuideInputState = Pick<
   ClientState,
@@ -65,8 +67,13 @@ export type GuideInputState = Pick<
   | "scoutDroneCharges"
   | "dockPairs"
   | "waypoint"
+  | "metPlayerIds"
+  | "leaderboard"
+  | "outgoingAllianceRequests"
+  | "incomingAllianceRequests"
 > &
-  GuideContestState;
+  GuideContestState &
+  GuideCampState;
 
 const MAX_BUILD_TARGETS = 6;
 const MAX_MUSTER_TARGETS = 6;
@@ -364,6 +371,9 @@ export const buildGuideInput = (state: GuideInputState): GuideInput => {
     attackLaunched: guideAttackLaunched(state),
     attackTargetTiles: () => guideAttackTargets(current.scan.attackCandidates, state, distanceFrom(state.homeTile)),
     truceStage: guideTruceStage(state),
+    camp: guideCampOf(state),
+    allianceStanding: guideAllianceStanding(state.metPlayerIds, fealtyLookupFor({ me: state.me, leaderboard: state.leaderboard })),
+    allianceSeen: guideAllianceSeen(state, typeof document === "undefined" ? undefined : document),
     manpower: { current: state.manpower, cap: state.manpowerCap },
     // No AFC (lost, awaiting a replacement): no drone to send, as in the unexplored tile menu.
     scout: guideScoutStatus(state.scoutDroneFlight, state.afcRecovery?.requiredSince === undefined, Date.now()),
@@ -387,4 +397,5 @@ export const resetGuideInputCacheForTests = (): void => {
   cached = undefined;
   exploreCache = undefined;
   flightsSeen = { me: "", launches: new Set() };
+  resetGuideCampForTests();
 };

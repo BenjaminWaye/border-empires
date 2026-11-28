@@ -5,6 +5,7 @@
 // (tutorial-guide-input.ts).
 
 import type { ClientState } from "../client-state/client-state.js";
+import type { FealtyLookup, FealtyStanding } from "../client-fealty/client-fealty.js";
 
 export type GuideTruceStage = "none" | "offered" | "incoming" | "active";
 
@@ -59,3 +60,24 @@ export const guideTruceStage = (state: Pick<GuideContestState, "activeTruces" | 
   if (state.outgoingTruceRequests.length > 0) return "offered";
   return "none";
 };
+
+/**
+ * Your alliance wording with the met rival Houses (client-fealty.ts): SWEAR as soon as one of them is at least
+ * twice your size, since that is the case new players misread (owner, 2026-11-28), else the first one's.
+ */
+export const guideAllianceStanding = (metPlayerIds: Iterable<string>, standingWith: FealtyLookup): FealtyStanding => {
+  let first: FealtyStanding | undefined;
+  for (const id of metPlayerIds) {
+    const standing = standingWith(id);
+    if (standing === "SWEAR") return standing;
+    first ??= standing;
+  }
+  return first ?? "ALLIANCE";
+};
+
+/** An alliance is offered or in force, or a deal screen has its alliance option picked (its pressed treaty button). */
+export const guideAllianceSeen = (state: Pick<ClientState, "allies" | "outgoingAllianceRequests" | "incomingAllianceRequests">, root: Pick<Document, "querySelector"> | undefined): boolean =>
+  state.allies.length > 0 ||
+  state.outgoingAllianceRequests.length > 0 ||
+  state.incomingAllianceRequests.length > 0 ||
+  Boolean(root?.querySelector('[data-trade-kind^="alliance"][aria-pressed="true"]'));

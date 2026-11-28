@@ -30,7 +30,7 @@ import { parseScoutDroneExploreStops } from "./scout-drone-explore-payload.js";
 import { createScoutFindings, scoutFindingsReport, type ScoutExploredLookup, type ScoutFindings } from "./scout-drone-findings.js";
 import { createScoutDroneBorders, type ScoutBorderFlight, type ScoutDroneBorderGauge, type ScoutSighting } from "./scout-drone-borders.js";
 import { createScoutDroneWorlds } from "./scout-drone-worlds.js";
-import { createScoutCampLeads, findScoutCampLead, type ScoutCampLeadsGauge } from "./scout-drone-camp-lead.js";
+import { createScoutCampLeads, findScoutCampLead, isScoutCampLeadFlight, type ScoutCampLeadsGauge } from "./scout-drone-camp-lead.js";
 
 export { isPlanetaryDefenseId } from "./scout-drone-worlds.js";
 
@@ -84,7 +84,7 @@ export type ScoutDroneRuntimeDeps = {
   readonly isExplored?: ScoutExploredLookup;
   /** PLAYER_UPDATE at landing, so the Cartographer counter shows the flight's tiles with its report. */
   readonly emitPlayerStateUpdate?: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
-  /** Live Insurgent camp tile keys: a launch shows the player the nearest one they have never seen (scout-drone-camp-lead.ts). Needs isExplored. */
+  /** Live Insurgent camp tile keys: the guided flight to the nearest one the player has never seen is free and shows it (scout-drone-camp-lead.ts). Needs isExplored. */
   readonly liveCampKeys?: () => Iterable<string>;
 };
 
@@ -120,6 +120,8 @@ export type ScoutDroneRuntime = {
   /** Push the player their drone (live subscribe / reconnect), `flight: null` while docked, with their charges. */
   readonly sendTo: (playerId: string) => void;
   readonly flightFor: (playerId: string) => ScoutDroneFlight | undefined;
+  /** The guide's camp lead for PLAYER_UPDATE guideCampLead: the camp a free guided flight may go to (scout-drone-camp-lead.ts). */
+  readonly campLeadFor: (playerId: string) => { x: number; y: number } | undefined;
   readonly gauge: () => ScoutDroneGauge;
 };
 
@@ -283,11 +285,20 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
     flushVision: (playerId, commandId) => deps.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [] })
   });
 
-  /** A launch also shows the nearest camp the player has never seen; it joins this flight's finds and report. */
-  const showCampLead = (active: ActiveFlight, launch: { x: number; y: number }, owner: DomainPlayer, nowMs: number): void => {
-    if (!deps.liveCampKeys || !deps.isExplored) return;
-    const camp = findScoutCampLead({ playerId: owner.id, from: launch, campKeys: deps.liveCampKeys(), tiles: deps.tiles(), isExplored: deps.isExplored, worldWidth: deps.worldWidth, worldHeight: deps.worldHeight });
-    if (!camp) return;
+  /** The guide's camp lead: the nearest live camp to the player's active AFCs they have never seen (scout-drone-camp-lead.ts). */
+  const campLeadFor = (playerId: string): { x: number; y: number } | undefined => {
+    if (!deps.liveCampKeys || !deps.isExplored) return undefined;
+    const origins: Array<{ x: number; y: number }> = [];
+    for (const key of deps.afcTileKeys(playerId)) {
+      const tile = deps.tiles().get(key);
+      if (tile?.afc?.status === "active") origins.push({ x: tile.x, y: tile.y });
+    }
+    if (origins.length === 0) return undefined;
+    return findScoutCampLead({ playerId, origins, campKeys: deps.liveCampKeys(), tiles: deps.tiles(), isExplored: deps.isExplored, worldWidth: deps.worldWidth, worldHeight: deps.worldHeight });
+  };
+
+  /** The guided flight shows its camp at launch; the camp joins this flight's finds and report. */
+  const showCampLead = (active: ActiveFlight, camp: { x: number; y: number }, owner: DomainPlayer, nowMs: number): void => {
     // Observed before the reveal explores it, so the report's new-tile count includes it.
     const finds = active.findings.observeTile(camp.x, camp.y, owner);
     campLeads.reveal(owner.id, camp, nowMs, active.commandId);
@@ -373,6 +384,7 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
   };
 
   return {
+    campLeadFor,
     handleExplore: (command) => {
       const actor = deps.players().get(command.playerId);
       const stops = parseScoutDroneExploreStops(command.payloadJson, deps.worldWidth, deps.worldHeight);
@@ -396,14 +408,17 @@ export const createScoutDroneRuntime = (deps: ScoutDroneRuntimeDeps): ScoutDrone
       // A border the player can see, right past their land: say so, and spend no charge on a flight that finds nothing.
       if (scoutDroneRouteDeadEnd(planScoutDroneRoute(launch, stops, world))) return reject(command, "SCOUT_BORDER_BLOCKED", "a rival border blocks the way");
       const now = deps.now();
-      if (stops.length > charges.available(actor.id, now)) return refuseNoCharges(command);
+      // The guide's flight to its camp lead is free (scout-drone-camp-lead.ts): checked here, never trusted from the client.
+      const lead = campLeadFor(actor.id);
+      const campLead = lead && isScoutCampLeadFlight(stops, lead, launch, deps.worldWidth, deps.worldHeight) ? lead : undefined;
+      if (!campLead && stops.length > charges.available(actor.id, now)) return refuseNoCharges(command);
       const flight = planScoutDroneWaypointFlight(launch, stops, now, world);
       if (!flight) return reject(command, "SCOUT_NO_PATH", "no clear way out from your AFC toward that tile");
       // One charge per stop it will actually reach: a route cut short at a rival border costs less.
-      charges.spend(actor.id, flight.waypoints?.length ?? 1, now);
+      if (!campLead) charges.spend(actor.id, flight.waypoints?.length ?? 1, now);
       const active: ActiveFlight = { playerId: actor.id, commandId: command.commandId, flight, lastStepIndex: -1, revealAt: undefined, findings: createScoutFindings(deps.tiles, deps.worldWidth, deps.worldHeight, deps.isExplored), alerted: false, bordersSeen: new Set(), homeReroutes: 0, homeRouteKept: false };
       flights.set(actor.id, active);
-      showCampLead(active, launch, actor, now);
+      if (campLead) showCampLead(active, campLead, actor, now);
       advance(active, now);
       send(actor.id, command.commandId, { type: SCOUT_DRONE_MESSAGE_TYPE, flight });
       deps.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });

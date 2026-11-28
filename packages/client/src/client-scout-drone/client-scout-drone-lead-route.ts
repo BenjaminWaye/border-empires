@@ -21,6 +21,16 @@ export const leadRouteLegs = (launch: Point, lead: Point): number => {
   return Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / LEAD_ROUTE_LEG_TILES));
 };
 
+/**
+ * True when `stops` is the guide's free flight to its camp lead (state.guideCampLead): it ends on the camp with
+ * no more stops than the straight route needs. Mirrors the simulation's isScoutCampLeadFlight, which decides.
+ */
+export const isCampLeadRoute = (stops: readonly Point[], lead: Point | undefined, launch: Point | undefined): boolean => {
+  const last = stops.at(-1);
+  if (!lead || !launch || !last || last.x !== lead.x || last.y !== lead.y) return false;
+  return stops.length <= leadRouteLegs(launch, lead);
+};
+
 /** Stops from `launch` to `lead`, ending on the lead itself, at most `capacity` of them (the nearest first). */
 export const leadRouteStops = (launch: Point, lead: Point, capacity: number): Point[] => {
   if (capacity <= 0) return [];

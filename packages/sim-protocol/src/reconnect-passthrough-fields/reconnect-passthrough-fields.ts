@@ -94,6 +94,7 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   manifestGoldDiscount: numberField("manifestGoldDiscount"),
   relicMapHints: presentField("relicMapHints"),
   guideTownLead: presentField("guideTownLead"),
+  guideCampLead: presentField("guideCampLead"),
   // Confirmed missing from init-payload.ts entirely until this fix (see
   // docs/player-wire-refactor-plan-phase3.md): real, durable player state
   // (granted once at spawn to the previous season's Planet winner, read

@@ -284,7 +284,7 @@ describe("tutorial guide in the onboarding corner", () => {
     markGuideStepsCompleted(waitingOnly, EMAIL);
     const state = newPlayerState();
     refreshOnboardingChecklistHighlight(state);
-    expect(card()?.querySelector(".tg-later")?.textContent).toBe("The guide returns for: Contest, Diplomacy");
+    expect(card()?.querySelector(".tg-later")?.textContent).toBe("The guide returns for: Diplomacy, First battle");
     click("finish");
     expect(readGuideProgress(EMAIL).status).toBe("active");
     expect(readGuideProgress(EMAIL).steps).toContain("turn-finish");
