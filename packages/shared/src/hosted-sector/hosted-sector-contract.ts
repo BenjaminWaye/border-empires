@@ -53,7 +53,7 @@ export const HOSTED_SECTOR_TERMS_VERSION = "2026-11-25-draft";
  * before paying (docs/legal-drafts/README.md, "What the code and settings
  * must do before sales open", items 2 and 3). Shown and stored word for word.
  */
-export const HOSTED_SECTOR_CONSENT_TERMS = "I accept the Terms of Sale.";
+export const HOSTED_SECTOR_CONSENT_TERMS = "I am 18 or older and I accept the Terms of Sale.";
 export const HOSTED_SECTOR_CONSENT_EARLY_START =
   "I ask for my sector to start now, during the 14-day withdrawal period. I understand that if I withdraw I pay for the days it has been open, and that I lose the right to withdraw once its Sector Contest has ended.";
 

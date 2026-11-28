@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { hostedSectorPriceLabel, isAllowedCheckoutUrl, mapSizeIsSellable } from "./client-hosted-sector-order.js";
+import { consentBoxesHtml, hostedSectorPriceLabel, isAllowedCheckoutUrl, mapSizeIsSellable } from "./client-hosted-sector-order.js";
 
 describe("buying a hosted sector", () => {
   it("shows the launch price", () => {
     expect(hostedSectorPriceLabel()).toBe("USD 20");
+  });
+
+  it("asks the buyer to state they are 18 or older, in the box that accepts the Terms", () => {
+    const html = consentBoxesHtml();
+    expect(html).toContain("I am 18 or older and I accept the");
+    expect(html.match(/type="checkbox"/g)).toHaveLength(2);
   });
 
   it("sells only a map size this build can draw", () => {

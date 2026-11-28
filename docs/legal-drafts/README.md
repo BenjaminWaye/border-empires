@@ -114,7 +114,7 @@ acknowledgement (8c) and saving results (8d).
    (`CHECKOUT_CONSENT_TEXT` in
    `apps/sector-control/src/providers/stripe/stripe-payment-provider.ts`)
    mentions losing the right once the contest has ended. Proposed wording:
-   - "I accept the Terms of Sale." (link)
+   - "I am 18 or older and I accept the Terms of Sale." (link; the age statement added 2026-11-28, AI review section 7 item 6, as Terms section 2 requires buyers to be 18)
    - "I ask for my sector to start now, during the 14-day withdrawal period. I
      understand that if I withdraw I pay for the days it has been open, and
      that I lose the right to withdraw once its Sector Contest has ended."
