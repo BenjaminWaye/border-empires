@@ -124,7 +124,7 @@ export function tickPopulationGrowth(input: {
     if (fedTownKeys.size === 0) {
       playersSkippedNoFedTowns += 1;
       playerDiag.set(player.id, { grown: 0, stalledFood: 0, war: 0, shock: 0, unfed: ownedTowns.size, logisticCap: 0, totalTowns: ownedTowns.size });
-      // Still self-heal isFed (below) before skipping: an empire whose only town went short read "Fed, +16/day"
+      // Still self-heal isFed here before skipping: an empire whose only town went short read "Fed, +16/day"
       // on the town card beside Economy's "Short 2" for as long as nothing else touched that tile (playtest 2026-11-28).
       const healedDeltas: ReturnType<typeof input.tileDeltaFromState>[] = [];
       for (const tileKey of ownedTowns.keys()) {
