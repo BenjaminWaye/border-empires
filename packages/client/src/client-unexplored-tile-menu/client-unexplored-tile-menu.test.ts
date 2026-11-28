@@ -95,7 +95,17 @@ describe("openUnexploredTileActionMenu", () => {
     const now = Date.now();
     state.scoutDroneFlight = flight(now + 80_000);
     state.scoutDroneCharges = { max: 8, refillMs: 14_400_000, usedAt: Array.from({ length: 8 }, () => now - 60 * 60_000) };
-    expect(openAt(state, 3, 3).actions[0]).toMatchObject({ id: "explore_scout", disabled: true, disabledReason: expect.stringMatching(/^\+1 in /) });
+    expect(openAt(state, 3, 3).actions[0]).toMatchObject({ id: "explore_scout", disabled: true, disabledReason: expect.stringMatching(/^\+1 in /), cost: "0/8" });
+  });
+
+  // Owner, First-15 round 1: the Explore button shows its count ("Explore 3/8").
+  it("shows the ready charges of the most on Explore", () => {
+    const state = createInitialState();
+    state.me = "me";
+    const now = Date.now();
+    state.scoutDroneCharges = { max: 8, refillMs: 14_400_000, usedAt: Array.from({ length: 5 }, () => now - 60 * 60_000) };
+    expect(openAt(state, 3, 3).actions[0]).toMatchObject({ id: "explore_scout", cost: "3/8" });
+    expect(openAt(state, 3, 3).actions[0]?.disabled).toBeFalsy();
   });
 
   it("enables Explore again once the drone has landed", () => {

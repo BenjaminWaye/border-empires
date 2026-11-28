@@ -1,7 +1,8 @@
 // The scout drone's HUD at the bottom of the screen, one slot for three moments (docs/explore-scout-plan.md §13):
 // - planning: the dock (client-scout-drone-dock.ts);
 // - idle with a charge ready, in the player's first days (client-scout-explore-offer-window.ts): the same pill
-//   offers the drone; tapping it opens a plan;
+//   offers the drone ("Explore 3/8"); tapping it opens a plan; with every charge out it stays, greyed, with
+//   the wait for the next charge ("next in 3h 58m");
 // - flying: a pill with the drone and the time until it is back; tapping it frames the drone;
 // - landed: the report card, what the flight found as icons with counts (each tappable to frame its finds).
 // While any of them is up, the body carries `scout-focus`, which tucks away the guide card and the House
@@ -17,6 +18,7 @@ import { screen as hudV2Screen } from "../client-hud-v2/client-hud-v2-context.js
 import { openSheetCount } from "../client-hud-v2/client-hud-v2-sheet.js";
 import { renderScoutDroneDock, scoutClock, type ScoutDockDeps } from "./client-scout-drone-dock.js";
 import { canPlanScoutFlight, scoutChargesReady } from "./client-scout-drone-plan.js";
+import { scoutChargeCount, scoutChargeRefillIn } from "./client-scout-drone-charge-status.js";
 import { exploreOfferWindowOpen } from "./client-scout-explore-offer-window.js";
 import { SCOUT_DRONE_ICON, SCOUT_FIND_ICONS, type ScoutFindKind } from "./client-scout-drone-icons.js";
 import type { ScoutDroneLandingReport } from "./client-scout-drone-state.js";
@@ -151,14 +153,8 @@ let lastFocusPhase = "";
 /** When a full-screen card covered the HUD (undefined while none does): the report's 90 s pause under it. */
 let coveredSince: number | undefined;
 
-/**
- * "Drone ready": while a charge is ready, in the player's first days this season, and nothing else holds
- * the slot, the pill offers the drone, and tapping it opens a plan, so a player who never thought to tap
- * the fog sees there is a drone to send (player review 2026-11-21; the owner had the "tap here" marker on
- * the map removed). It used to need every charge unused, so it vanished after the first flight while
- * charges remained (four Run 4 personas); after the first days it steps aside (owner, Playtest Run 4).
- */
-export const scoutDroneReadyToOffer = (state: ClientState, nowMs: number): boolean =>
+/** Nothing else holds the bottom slot, the House can send a drone, and it is the first days this season. */
+const scoutOfferSlotOpen = (state: ClientState, nowMs: number): boolean =>
   !state.scoutDronePicking.active &&
   // Never while another map pick is armed: one armed pick at a time (client-scout-drone-picking.ts).
   !state.crystalTargeting.active &&
@@ -168,17 +164,38 @@ export const scoutDroneReadyToOffer = (state: ClientState, nowMs: number): boole
   !state.buildingPlacement.active &&
   !(state.scoutDroneFlight && nowMs < state.scoutDroneFlight.landsAt) &&
   canPlanScoutFlight(state) &&
-  scoutChargesReady(state, nowMs) > 0 &&
   exploreOfferWindowOpen(state, nowMs);
 
-const renderPill = (state: ClientState, deps: ScoutHudDeps, nowMs: number, cardUp: boolean): boolean => {
+/**
+ * "Drone ready": while a charge is ready, in the player's first days this season, and nothing else holds
+ * the slot, the pill offers the drone, and tapping it opens a plan, so a player who never thought to tap
+ * the fog sees there is a drone to send (player review 2026-11-21; the owner had the "tap here" marker on
+ * the map removed). It used to need every charge unused, so it vanished after the first flight while
+ * charges remained (four Run 4 personas); after the first days it steps aside (owner, Playtest Run 4).
+ */
+export const scoutDroneReadyToOffer = (state: ClientState, nowMs: number): boolean =>
+  scoutOfferSlotOpen(state, nowMs) && scoutChargesReady(state, nowMs) > 0;
+
+/**
+ * Every charge out: the pill stays in the offer slot, greyed, with the wait for the next charge ("next in
+ * 3h 58m"). Players saw the Explore pill vanish and never learned charges come back (owner, First-15 round 1).
+ * Undefined while a charge is ready or the slot is taken.
+ */
+export const scoutDroneRefillToShow = (state: ClientState, nowMs: number): string | undefined =>
+  scoutOfferSlotOpen(state, nowMs) ? scoutChargeRefillIn(state, nowMs) : undefined;
+
+/** What the pill shows: the drone in flight, or the offer slot (a charge ready, or the wait for the next). */
+type PillMode = "flight" | "offer";
+
+const renderPill = (state: ClientState, deps: ScoutHudDeps, nowMs: number, cardUp: boolean): PillMode | undefined => {
   const flight = state.scoutDroneFlight;
   const flying = Boolean(flight && nowMs < flight.landsAt && !state.scoutDronePicking.active);
   const ready = !flying && !cardUp && scoutDroneReadyToOffer(state, nowMs);
+  const refill = !flying && !ready && !cardUp ? scoutDroneRefillToShow(state, nowMs) : undefined;
   // A tile's menu owns the bottom while it is open: the pill sat over the AFC's action bar (2026-11-21).
-  if ((!flying && !ready) || state.tileActionMenu.visible) {
+  if ((!flying && !ready && refill === undefined) || state.tileActionMenu.visible) {
     hide(PILL_ID);
-    return false;
+    return undefined;
   }
   const el = ensure(PILL_ID);
   if (!el.querySelector("button")) {
@@ -200,14 +217,25 @@ const renderPill = (state: ClientState, deps: ScoutHudDeps, nowMs: number, cardU
     };
   }
   const button = el.querySelector("button") as HTMLButtonElement;
+  const empty = refill !== undefined;
   button.classList.toggle("is-ready", ready);
-  el.classList.toggle("is-offer", ready);
-  button.setAttribute("aria-label", ready ? `Explore: send the scout drone, ${scoutChargesReady(state, nowMs)} charges` : `Find the scout drone, back in ${scoutClock(flight!.landsAt - nowMs)}`);
+  button.classList.toggle("is-empty", empty);
+  // Nothing to send while every charge is out: the pill only tells the wait.
+  button.disabled = empty;
+  el.classList.toggle("is-offer", ready || empty);
+  // "Explore 3/8": how many charges are ready of how many (owner, First-15 round 1).
+  const count = scoutChargeCount(state, nowMs);
+  const label = ready
+    ? `Explore: send the scout drone, ${count} charges ready`
+    : empty
+      ? `Explore: no charges ready, next in ${refill}`
+      : `Find the scout drone, back in ${scoutClock(flight!.landsAt - nowMs)}`;
+  button.setAttribute("aria-label", label);
   el.style.display = "flex";
   const time = el.querySelector(".sdp-time")!;
-  const text = ready ? String(scoutChargesReady(state, nowMs)) : scoutClock(flight!.landsAt - nowMs);
+  const text = ready ? count : empty ? `next in ${refill}` : scoutClock(flight!.landsAt - nowMs);
   if (time.textContent !== text) time.textContent = text;
-  return true;
+  return ready || empty ? "offer" : "flight";
 };
 
 const renderCard = (state: ClientState, deps: ScoutHudDeps, nowMs: number): boolean => {
@@ -312,8 +340,9 @@ export const renderScoutDroneHud = (state: ClientState, deps: ScoutHudDeps): voi
   // Only on a live session: the send path reports an auth error otherwise, and this retries on every render.
   if (state.scoutReportUnacked && state.connection === "initialized" && deps.send({ type: "SCOUT_REPORT_SEEN", id: state.scoutReportUnacked })) state.scoutReportUnacked = undefined;
   const card = mapUp ? renderCard(state, deps, nowMs) : (hide(CARD_ID), false);
-  const pill = mapUp ? renderPill(state, deps, nowMs, card) : (hide(PILL_ID), false);
-  const offering = pill && scoutDroneReadyToOffer(state, nowMs);
+  const pillMode = mapUp ? renderPill(state, deps, nowMs, card) : (hide(PILL_ID), undefined);
+  const pill = pillMode !== undefined;
+  const offering = pillMode === "offer";
   // Planning, the flight and the report fold the guide to its "?" launcher and hide the House nudge. The code
   // review worried a long flight would hide a guide step; the players disagreed: with the guide open in flight
   // it covered the drone and the route for all three (round 6). The step stays one tap away on the launcher.
