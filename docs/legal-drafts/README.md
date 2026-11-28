@@ -465,6 +465,12 @@ file).
 is `privacy.html` here with the date filled in and the UK representative
 sentence left out until one is appointed. Until the Terms are published too,
 edit both copies together; `client-legal-pages.test.ts` fails when they differ.
+Still required **before the first sale** (both are on this checklist until done):
+appoint the UK representative and put the sentence back (`UK_REPRESENTATIVE`;
+the game is offered in the UK, so the first UK sale needs it), and, once the
+Backblaze backup timer runs, remove "once we switch these backups on" from
+both Backblaze sentences in both copies, since the page must not claim a
+backup that is not running.
 
 4. Move `purchase-terms.html` and `privacy.html` into
    `packages/client/public/`, apply the Terms of Service change, link the
