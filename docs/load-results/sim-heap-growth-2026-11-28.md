@@ -258,13 +258,14 @@ full-map reveal is built
 ([`full-reveal-2026-11-23.md`](full-reveal-2026-11-23.md)) and 7–40 MB while a
 checkpoint is built: about 2.4 GB at worst on the 4 GB server.
 
-The checkpoint watermarks stay as they are (680 MB heap, 1,500 MB process).
-If heap peaks pass 680 MB, or the process passes 1,500 MB, regular
-checkpoints are put off and run only when forced every 4,000 events, which
-lengthens what a crash rolls back. Under the land-bounded reading (peaks about
-600–650 MB) that does not happen; under the straight-line reading it starts
-around day 10–13. Raising them to about 1,300 MB heap and 2,300 MB process
-would remove that; not done.
+The checkpoint watermarks are raised with it: heap from 680 to 1,300 MB and
+process from 1,500 to 2,300 MB. Left at 680 MB, regular checkpoints would be
+put off (run only when forced every 4,000 events, which lengthens what a crash
+rolls back) once heap peaks passed 680 MB, around day 10–13 on the
+straight-line reading. 1,300 MB leaves about 236 MB under the heap limit for a
+checkpoint build (7–40 MB measured); 2,300 MB sits just under the 2.4 GB
+worst case above, so only the rare moment of a reveal at day-30 heap would put
+a checkpoint off, and 1.6 GB of the server stays free.
 
 **A full-map run is still wanted** to confirm that growth stops when the land
 is full. The higher limit buys time against the straight-line reading; it does
