@@ -181,7 +181,27 @@ acknowledgement (8c) and saving results (8d).
    draft now says analytics run only with consent and that consent can be
    withdrawn in the game's settings, so either a consent prompt and a setting
    to withdraw it are built, or analytics are turned off and that sentence is
-   removed, before it is published.
+   removed, before it is published. **Built 2026-11-28** (plan §15 step 8f,
+   `packages/client/src/client-analytics-consent/`): Google Analytics is not
+   started, and sets no cookie, until the visitor answers "Yes" to a prompt
+   with two equal buttons; the answer is kept in the browser and can be
+   changed in Settings → Account or by opening the game with `?analytics=ask`
+   (for the privacy page to link to). Withdrawing tells Google's tag the
+   answer (consent mode "denied"), switches collection off, deletes the
+   Firebase installation id kept in the browser and the `_ga`/`_gcl`/`_gac`
+   cookies; cookies left by earlier builds are deleted at load unless the
+   answer is yes. The native apps run no analytics and do not ask. Before
+   publishing: the live `packages/client/public/privacy.html` does not yet
+   describe this (the draft does), and the prompt links to it. Staging uses
+   the production measurement id by default and shares
+   `.borderempires.com` cookies with the game, so a yes on staging sets the
+   same cookie for play; set a separate id for staging.
+   **Open:** the game's own sign-up funnel (`client-acquisition-funnel.ts`)
+   stores a random visitor id in the browser (`localStorage`) to count each
+   step once per browser. That is also storage for statistics, so it most
+   likely needs the same consent; gating it would undercount the funnel for
+   visitors who say no. **Question for the lawyer and the owner:** gate it on
+   the same consent, or keep the id for the visit only (no storage)?
 12. **Hetzner locations.** The location is a setting of the Hetzner provider
     (`location` in `apps/sector-control/src/providers/hetzner/hetzner-server-provider.ts`),
     and the plan allows a fallback location. The privacy draft says sector
