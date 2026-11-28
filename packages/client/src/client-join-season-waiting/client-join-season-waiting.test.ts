@@ -65,13 +65,15 @@ describe("waiting for the next contest", () => {
     expect(overlayEl.textContent).toContain("We'll email house@example.com");
   });
 
-  it("sends a guest to save their empire, closing the card so the save panel shows", () => {
+  it("sends a guest to save their empire and keeps the waiting view behind the save panel", () => {
     const state = makeState({ joinSeasonWaiting: true, authIsGuest: true, authEmail: "" });
     const { overlayEl } = mount(state);
     const save = overlayEl.querySelector("#join-waiting-save") as HTMLButtonElement;
     expect(save.textContent).toBe("Save your empire to get an email");
     save.click();
-    expect(state.joinSeasonOverlayOpen).toBe(false);
+    // Regression: the card used to close here, so backing out of saving left the guest on the fogged map.
+    expect(state.joinSeasonOverlayOpen).toBe(true);
+    expect(state.joinSeasonWaiting).toBe(true);
     expect(openGuestSavePanel).toHaveBeenCalledWith("contest-email");
   });
 
@@ -116,6 +118,17 @@ describe("waiting for the next contest", () => {
     renderHud();
     expect(panel().classList.contains("is-active")).toBe(true);
     expect(panel().textContent).toContain("House Kell");
+  });
+
+  it("opens on Sectors each time the player chooses to wait, not on the tab left last time", () => {
+    // Regression: the chosen tab stayed on the overlay, so waiting again after a new INIT reopened on Standings.
+    const state = makeState({ joinSeasonWaiting: true });
+    const { overlayEl, renderHud } = mount(state);
+    (overlayEl.querySelector('[data-join-waiting-tab="standings"]') as HTMLButtonElement).click();
+    applyInitJoinScreenFields(state as never, {});
+    renderHud();
+    (overlayEl.querySelector("#join-season-wait") as HTMLButtonElement).click();
+    expect(overlayEl.querySelector('[data-join-waiting-panel="sectors"]')?.classList.contains("is-active")).toBe(true);
   });
 
   it("a new INIT starts the next contest on the join card, not the waiting view", () => {

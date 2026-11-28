@@ -202,6 +202,8 @@ const bindWait = (overlayEl: HTMLDivElement, selector: string, state: { joinSeas
   if (!button) return;
   button.onclick = () => {
     state.joinSeasonWaiting = true;
+    // Each visit opens on Sectors; the tab kept on the overlay only carries across redraws.
+    delete overlayEl.dataset[JOIN_WAITING_TAB_ATTR];
     renderHud();
   };
 };
@@ -350,7 +352,7 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
       landDisabled,
       tab: overlayEl.dataset[JOIN_WAITING_TAB_ATTR] === "standings" ? "standings" : "sectors"
     });
-    bindJoinWaiting(overlayEl, { state, renderHud });
+    bindJoinWaiting(overlayEl, { renderHud });
     bindConfirm(overlayEl, state, joinSeason, renderHud);
     return;
   }

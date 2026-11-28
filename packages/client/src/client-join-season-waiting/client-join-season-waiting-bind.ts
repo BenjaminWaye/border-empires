@@ -4,7 +4,6 @@ import { setEmailNotificationPref } from "../client-email-notifications/client-e
 import { openGuestSavePanel } from "../client-guest-save/client-guest-save-panel.js";
 
 export type JoinWaitingBindDeps = {
-  state: { joinSeasonOverlayOpen: boolean };
   renderHud: () => void;
   setSeasonStartEmail?: (enabled: boolean) => void;
   openGuestSave?: () => void;
@@ -44,9 +43,8 @@ export const bindJoinWaiting = (overlayEl: HTMLElement, deps: JoinWaitingBindDep
   const saveBtn = overlayEl.querySelector("#join-waiting-save") as HTMLButtonElement | null;
   if (saveBtn) {
     saveBtn.onclick = () => {
-      // The card covers the whole HUD (season-lobby-active), so it closes for the save panel to show.
-      deps.state.joinSeasonOverlayOpen = false;
-      deps.renderHud();
+      // The save panel shows above the lobby (client-season-lobby-style.css), so the waiting view stays
+      // open behind it: a guest who backs out of saving is still waiting, not on the fogged map.
       (deps.openGuestSave ?? (() => openGuestSavePanel("contest-email")))();
     };
   }
