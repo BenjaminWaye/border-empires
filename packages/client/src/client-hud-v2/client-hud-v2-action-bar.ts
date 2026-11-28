@@ -241,10 +241,15 @@ export const actionBarHtml = (fullView: TileMenuView, panel?: BarPanel, facts: r
       ? `<button type="button" class="${statusCls} hud-v2-tile-status-help" data-hud-v2-panel="status" aria-expanded="${panel === "status"}" title="What does this mean?">${esc(view.statusText)} ⓘ</button>`
       : `<span class="${statusCls}">${esc(view.statusText)}</span>`;
   const head = `<div class="hud-v2-tile-head"><span class="hud-v2-tile-text"><span class="hud-v2-tile-title">${esc(view.title)}</span><span class="hud-v2-tile-sub">${ownerTagHtml}${view.subtitleHtml ?? esc(view.subtitle)}</span></span>${status}<button type="button" class="hud-v2-tile-close" data-hud-v2-close aria-label="Close">✕</button></div>`;
+  // A recommended building (the guide's Manufactory) marks Build ▸ with ★ and its id, so the guide's
+  // outline points the player into the Build list instead of a duplicate button on the bar.
+  const recommendedBuild = barBuildings(view, buttons.find((b): b is Extract<BarButton, { kind: "action" }> => b.kind === "action" && b.primary)?.action).find((b) => b.recommended);
+  const panelExtra = (b: Extract<BarButton, { kind: "panel" }>): { attr: string; star: string } =>
+    b.panel === "build" && recommendedBuild ? { attr: ` data-v2-build-recommended="${esc(recommendedBuild.id)}"`, star: "★ " } : { attr: "", star: "" };
   const row = buttons.map((b) => (b.kind === "action"
     ? actionButtonHtml(b)
     : b.kind === "afc" ? `<button type="button" class="hud-v2-act${b.primary ? " hud-v2-act-primary" : ""}" data-hud-v2-open="afc">${(view.afcUpgradesReady ?? 0) > 0 ? `AFC upgrades · ${view.afcUpgradesReady} ready` : "AFC upgrades"}</button>`
-    : `<button type="button" class="hud-v2-act${b.primary ? " hud-v2-act-primary" : ""} hud-v2-act-${b.panel}${b.panel === panel ? " hud-v2-act-open" : ""}" data-hud-v2-panel="${b.panel}" aria-expanded="${b.panel === panel}">${esc(b.label)}</button>`)).join("");
+    : `<button type="button" class="hud-v2-act${b.primary ? " hud-v2-act-primary" : ""} hud-v2-act-${b.panel}${b.panel === panel ? " hud-v2-act-open" : ""}" data-hud-v2-panel="${b.panel}"${panelExtra(b).attr} aria-expanded="${b.panel === panel}">${panelExtra(b).star}${esc(b.label)}</button>`)).join("");
   const primary = buttons.find((b): b is Extract<BarButton, { kind: "action" }> => b.kind === "action" && b.primary);
   const autoSettle = primary?.action.autoSettleOption;
   // A Garrison checkbox belongs with whichever Garrison button is showing (main or minor row).
