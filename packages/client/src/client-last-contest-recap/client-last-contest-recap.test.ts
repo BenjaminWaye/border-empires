@@ -149,6 +149,16 @@ describe("last contest recap", () => {
     expect(hideRule?.[1]).toContain(":not(#season-end-overlay)");
   });
 
+  it("lets the hosted sectors and guest save panels show above the lobby, which opens them", () => {
+    // Regression: both panels mount inside #hud, so the lobby rule hid them and
+    // "Fund a new sector" on the join card and waiting view did nothing.
+    const css = readFileSync(resolve(process.cwd(), "src/client-season-lobby-style.css"), "utf8");
+    const hideRule = /body\.season-lobby-active #hud > ([^{]+)\{\s*display: none !important;/.exec(css);
+    expect(hideRule?.[1]).toContain(":not(.hosted-sectors-panel)");
+    expect(hideRule?.[1]).toContain(":not(#guest-save-panel)");
+    expect(css).toMatch(/body\.season-lobby-active \.hosted-sectors-panel \{\s*z-index: 40;/);
+  });
+
   it("drops the cached recap at rollover so the next open fetches the newer contest", async () => {
     // Regression: a tab kept open across a rollover kept showing the older contest.
     const state = createInitialState();

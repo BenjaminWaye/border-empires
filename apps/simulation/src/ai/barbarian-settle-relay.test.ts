@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BARBARIAN_INFLIGHT_TIMEOUT_MS } from "@border-empires/shared";
 import { createBarbSettleRelay } from "./barbarian-settle-relay.js";
 
 const setup = () => {
@@ -43,7 +44,7 @@ describe("createBarbSettleRelay", () => {
   it("stays bounded: entries older than the in-flight timeout are dropped, and clear() empties it", () => {
     const { clock, relay } = setup();
     relay.onSubmitted("old");
-    clock.t += 46_000;
+    clock.t += BARBARIAN_INFLIGHT_TIMEOUT_MS + 1_000;
     relay.onSubmitted("new");
     expect(relay.size()).toBe(1);
     relay.clear();
