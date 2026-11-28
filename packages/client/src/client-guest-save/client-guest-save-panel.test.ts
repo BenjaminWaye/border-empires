@@ -32,7 +32,7 @@ const init = (overrides: Partial<GuestSaveDeps> = {}) =>
   initGuestSave({
     firebaseAuth: { currentUser: { isAnonymous: true, getIdToken: vi.fn(async () => "t") }, authStateReady: async () => undefined } as never,
     googleProvider: {} as never,
-    analytics: undefined,
+    analytics: () => undefined,
     reload: vi.fn(),
     userAgent: () => "Mozilla/5.0 Safari/605.1.15",
     pageUrl: () => "https://play.example.test/",
