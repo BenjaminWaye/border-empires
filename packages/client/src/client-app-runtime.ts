@@ -59,7 +59,7 @@ const { firebaseAuth, googleProvider, twitchProvider, discordProvider, analytics
 // Asks once, on the web, before any analytics runs (plan step 8f).
 startAnalyticsConsentUi(analyticsConsent);
 const { ws, wsUrl } = createClientSocketSetup(state);
-startClientAcquisitionFunnel({ firebaseAuth, analytics, wsUrl, methodButtons: [{ button: dom.authGoogleBtn, method: "google.com" }, { button: dom.authTwitchBtn, method: "oidc.twitch" }, { button: dom.authDiscordBtn, method: "oidc.discord" }, { button: dom.authAppleBtn, method: "apple.com" }, { button: dom.authEmailLinkBtn, method: "email-link" }, { button: dom.authLoginBtn, method: "password-login" }, { button: dom.authRegisterBtn, method: "password-register" }] });
+startClientAcquisitionFunnel({ firebaseAuth, analytics, consent: analyticsConsent, wsUrl, methodButtons: [{ button: dom.authGoogleBtn, method: "google.com" }, { button: dom.authTwitchBtn, method: "oidc.twitch" }, { button: dom.authDiscordBtn, method: "oidc.discord" }, { button: dom.authAppleBtn, method: "apple.com" }, { button: dom.authEmailLinkBtn, method: "email-link" }, { button: dom.authLoginBtn, method: "password-login" }, { button: dom.authRegisterBtn, method: "password-register" }] });
 const devAuthPlayerId = resolveDevAuthPlayerId(window.location.hostname, window.location.search);
 
 dom.miniMapBase.width = dom.miniMapEl.width;

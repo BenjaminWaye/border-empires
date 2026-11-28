@@ -81,6 +81,8 @@ export type AnalyticsConsentController = {
   analytics: AnalyticsSource;
   grant: () => void;
   withdraw: () => void;
+  /** Called after every answer, so other measurement (the sign-up funnel) can follow it. */
+  onChange: (listener: (choice: AnalyticsConsent) => void) => void;
 };
 
 /**
@@ -113,6 +115,8 @@ export const createAnalyticsConsent = (deps: {
       running = undefined;
     }
   };
+  const listeners: Array<(choice: AnalyticsConsent) => void> = [];
+  const notify = (answer: AnalyticsConsent): void => { for (const listener of listeners) safely(() => listener(answer)); };
   if (choice === "granted") start();
   // Cookies the game set before it asked (earlier builds started analytics for everyone) go now, unless the answer is yes.
   else (deps.clearCookies ?? deleteAnalyticsCookies)();
@@ -124,6 +128,7 @@ export const createAnalyticsConsent = (deps: {
       writeAnalyticsConsent("granted", now(), store);
       safely(() => deps.setConsentMode?.(true));
       start();
+      notify("granted");
     },
     withdraw: () => {
       choice = "denied";
@@ -139,6 +144,8 @@ export const createAnalyticsConsent = (deps: {
         if (forgetting) forgetting.catch(() => undefined);
       });
       safely(() => (deps.clearCookies ?? deleteAnalyticsCookies)());
-    }
+      notify("denied");
+    },
+    onChange: (listener) => { listeners.push(listener); }
   };
 };

@@ -1,4 +1,9 @@
-// Anonymous pre-login funnel for /admin/players/insights:
+// Anonymous pre-login funnel for /admin/players/insights. It stores a visitor
+// id in the browser, so it runs only with the visitor's consent, the same one
+// Google Analytics needs (client-analytics-consent.ts; plan step 8f): until
+// the visitor answers, steps wait in memory, are sent on "Yes" and dropped on
+// "No". Where nobody is asked (the native apps, staging) it does not run.
+//
 //
 //   visit -> auth_form_shown -> auth_method_clicked -> sign_up
 //
@@ -12,7 +17,7 @@
 // listener and button listeners instead of threading hooks through
 // client-auth-flow.ts. Best-effort throughout — nothing here may throw into,
 // or delay, sign-in.
-import type { AnalyticsSource } from "../client-analytics-consent/client-analytics-consent.js";
+import type { AnalyticsConsent, AnalyticsConsentController, AnalyticsSource } from "../client-analytics-consent/client-analytics-consent.js";
 import { logEvent } from "firebase/analytics";
 import { onAuthStateChanged, type Auth } from "firebase/auth";
 
@@ -54,8 +59,15 @@ const hasPersistedFirebaseUser = (storage: AcquisitionFunnelEnv["storage"]): boo
     return false;
   }, false);
 
-export const createAcquisitionFunnel = (endpoint: string, env: AcquisitionFunnelEnv): AcquisitionFunnel => {
+/** The visitor's answer now, and a way to hear the next one. */
+export type FunnelConsent = { choice: () => AnalyticsConsent | undefined; onChange: (listener: (choice: AnalyticsConsent) => void) => void };
+
+/** Steps of this page that wait for an answer: one of each at most, so it cannot grow. */
+const MAX_WAITING_STEPS = 4;
+
+export const createAcquisitionFunnel = (endpoint: string, env: AcquisitionFunnelEnv, consent: FunnelConsent): AcquisitionFunnel => {
   const sentThisPage = new Set<AcquisitionStep>();
+  let waiting: Array<{ step: AcquisitionStep; detail: AcquisitionDetail }> = [];
   let ephemeralVisitorId: string | undefined;
   const visitorId = (): string => {
     const stored = safe(() => env.storage?.getItem(VISITOR_ID_STORAGE_KEY) ?? null, null);
@@ -68,14 +80,32 @@ export const createAcquisitionFunnel = (endpoint: string, env: AcquisitionFunnel
   const isKnownPlayer = (): boolean =>
     safe(() => env.storage?.getItem(KNOWN_PLAYER_STORAGE_KEY) === "1", false) || hasPersistedFirebaseUser(env.storage);
 
+  const send = (step: AcquisitionStep, detail: AcquisitionDetail): void => {
+    if (sentThisPage.has(step)) return;
+    if (step !== "sign_up" && isKnownPlayer()) return;
+    sentThisPage.add(step);
+    safe(() => env.sendBeacon(endpoint, JSON.stringify({ visitorId: visitorId(), step, detail })), undefined);
+  };
+  consent.onChange((answer) => {
+    const steps = waiting;
+    waiting = [];
+    if (answer === "granted") for (const { step, detail } of steps) send(step, detail);
+  });
+
   return {
     report: (step, detail = {}) => {
-      if (sentThisPage.has(step)) return;
-      if (step !== "sign_up" && isKnownPlayer()) return;
-      sentThisPage.add(step);
-      safe(() => env.sendBeacon(endpoint, JSON.stringify({ visitorId: visitorId(), step, detail })), undefined);
+      const answer = consent.choice();
+      if (answer === "denied") return;
+      if (answer === "granted") {
+        send(step, detail);
+        return;
+      }
+      if (!waiting.some((entry) => entry.step === step) && waiting.length < MAX_WAITING_STEPS) waiting.push({ step, detail });
     },
-    markKnownPlayer: () => safe(() => env.storage?.setItem(KNOWN_PLAYER_STORAGE_KEY, "1"), undefined),
+    // A note in the browser for the funnel only, so it is kept only with consent.
+    markKnownPlayer: () => {
+      if (consent.choice() === "granted") safe(() => env.storage?.setItem(KNOWN_PLAYER_STORAGE_KEY, "1"), undefined);
+    },
     isKnownPlayer
   };
 };
@@ -110,14 +140,18 @@ export type StartAcquisitionFunnelDeps = {
   firebaseAuth: Auth | undefined;
   /** Read per event: undefined without the player's consent. */
   analytics: AnalyticsSource;
+  /** Undefined where nobody is asked (native apps, staging): the funnel then does not run. */
+  consent: AnalyticsConsentController | undefined;
   wsUrl: string;
   methodButtons: Array<{ button: HTMLElement; method: string }>;
 };
 
 export const startClientAcquisitionFunnel = (deps: StartAcquisitionFunnelDeps): void => {
   safe(() => {
+    const { consent } = deps;
+    if (!consent) return;
     const env = browserEnv();
-    const funnel = createAcquisitionFunnel(`${serverHttpOriginFromWsUrl(deps.wsUrl)}/api/funnel`, env);
+    const funnel = createAcquisitionFunnel(`${serverHttpOriginFromWsUrl(deps.wsUrl)}/api/funnel`, env, consent);
     activeFunnel = funnel;
     const logGa = (name: string, params: Record<string, string>): void => {
       const analytics = deps.analytics();
