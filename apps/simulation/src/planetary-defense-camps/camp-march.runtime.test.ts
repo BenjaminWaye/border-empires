@@ -26,7 +26,7 @@ const seeds: Seed[] = [
   { x: 73, y: 71 }
 ];
 
-const buildRuntime = () => {
+const buildRuntime = (world: Seed[] = seeds) => {
   const players = new Map([
     ["barbarian-1", buildPlayer("barbarian-1", { isAi: true, points: Number.MAX_SAFE_INTEGER, manpower: Number.MAX_SAFE_INTEGER })],
     ["player-1", buildPlayer("player-1", { points: 1_000, manpower: 1_000 })],
@@ -41,7 +41,7 @@ const buildRuntime = () => {
     isPlayerSubscribed: (id) => id === "player-1",
     initialPlayers: players,
     seedTiles: new Map(),
-    initialState: { tiles: seeds.map((seed) => ({ terrain: "LAND" as const, ...seed })), activeLocks: [] }
+    initialState: { tiles: world.map((seed) => ({ terrain: "LAND" as const, ...seed })), activeLocks: [] }
   });
   const events: SimulationEvent[] = [];
   runtime.onEvent((event) => events.push(event));
@@ -85,6 +85,31 @@ describe("Planetary Defense companies march out of their camp", () => {
       marchMs: 3 * MUSTER_TRANSIT_MS_PER_TILE, transitEndsAt: NOW + 3 * MUSTER_TRANSIT_MS_PER_TILE, serverNow: NOW
     });
     expect(accepted(events)!.resolvesAt).toBe(JSON.parse(sent[0]!.payloadJson).resolvesAt);
+  });
+
+  // The client draws the company along the route the server timed, sent with
+  // the march, rather than planning its own (which could differ, e.g. under fog).
+  it("sends the exact route it timed, round water the straight walk would cross", async () => {
+    // Water at (71,70) sits on the straight walk from the camp (70,70) to (72,70).
+    const world: Seed[] = [
+      { x: 70, y: 70, ownerId: "barbarian-1", ownershipState: "SETTLED", campId: "70,70" },
+      { x: 71, y: 70, terrain: "SEA" },
+      { x: 71, y: 71, ownerId: "barbarian-1", ownershipState: "FRONTIER", campId: "70,70" },
+      { x: 72, y: 70, ownerId: "barbarian-1", ownershipState: "FRONTIER", campId: "70,70" },
+      { x: 73, y: 70 },
+      { x: 74, y: 70, ownerId: "player-1", ownershipState: "SETTLED" }
+    ];
+    const { runtime, events } = buildRuntime(world);
+    await submitBarbarian(runtime, "EXPAND", [72, 70], [73, 70]);
+    const payload = JSON.parse(marches(events)[0]!.payloadJson);
+    expect(payload.legs).toHaveLength(1);
+    expect(payload.legs[0].kind).toBe("WALK");
+    const points: Array<[number, number]> = payload.legs[0].points;
+    expect(points[0]).toEqual([70, 70]);
+    expect(points[points.length - 1]).toEqual([72, 70]);
+    expect(points).not.toContainEqual([71, 70]);
+    expect(payload.legMs).toEqual([payload.marchMs]);
+    expect(accepted(events)!.transitEndsAt).toBe(NOW + payload.marchMs);
   });
 
   it("a House's own attack has no camp march", async () => {

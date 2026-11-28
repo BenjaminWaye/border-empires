@@ -13,7 +13,7 @@
 // the launch tile or the target gets an INSURGENT_MARCH message
 // (client-insurgent-march/ draws it in both renderers).
 import type { DomainTileState } from "@border-empires/game-domain";
-import type { TransitPoint } from "@border-empires/shared";
+import type { MusterTransitRoute, TransitPoint } from "@border-empires/shared";
 
 export const INSURGENT_MARCH_MESSAGE_TYPE = "INSURGENT_MARCH";
 
@@ -23,8 +23,12 @@ export type CampMarch = {
   camp: TransitPoint;
   from: TransitPoint;
   to: TransitPoint;
-  /** How long the walk takes; the client starts the company this long before transitEndsAt. */
-  marchMs: number;
+  /**
+   * The route the march was timed on (muster-transit-delay.ts): its walk legs
+   * and any dock crossing. Sent whole, so the client draws the company where
+   * the server has it, even over ground the viewer can't see.
+   */
+  route: MusterTransitRoute;
   transitEndsAt: number;
   resolvesAt: number;
   /** Server clock when the march set out; lets the client align the deadlines to its own clock. */
@@ -62,7 +66,11 @@ export const insurgentMarchPayload = (march: CampMarch): Record<string, unknown>
   fromY: march.from.y,
   toX: march.to.x,
   toY: march.to.y,
-  marchMs: march.marchMs,
+  // How long the march takes; the client starts the company this long before transitEndsAt.
+  marchMs: march.route.transitMs,
+  // [kind, ...] legs: WALK as its tile points, SAIL as dock and landing; legMs in the same order.
+  legs: march.route.legs.map((leg) => (leg.kind === "WALK" ? { kind: "WALK", points: leg.points.map((p) => [p.x, p.y]) } : { kind: "SAIL", from: [leg.from.x, leg.from.y], to: [leg.to.x, leg.to.y] })),
+  legMs: march.route.legMs,
   transitEndsAt: march.transitEndsAt,
   resolvesAt: march.resolvesAt,
   serverNow: march.serverNow

@@ -3,7 +3,7 @@ import { WORLD_WIDTH } from "@border-empires/shared";
 import {
   activeInsurgentMarches,
   clearInsurgentMarches,
-  insurgentMarchPoint,
+  insurgentMarchPose,
   insurgentMarchToTileUnderWay,
   recordInsurgentMarch
 } from "./client-insurgent-march.js";
@@ -18,6 +18,8 @@ const message = (overrides: Record<string, unknown> = {}): Record<string, unknow
   actionType: "ATTACK",
   campX: 70, campY: 70, fromX: 73, fromY: 70, toX: 74, toY: 70,
   marchMs: 6_000, transitEndsAt: 16_000, resolvesAt: 31_000,
+  legs: [{ kind: "WALK", points: [[70, 70], [71, 70], [72, 70], [73, 70]] }],
+  legMs: [6_000],
   ...overrides
 });
 
@@ -29,16 +31,50 @@ describe("insurgent marches", () => {
   it("walks the company from the camp to the launch tile over the march time", () => {
     const march = recordInsurgentMarch(message(), 10_000)!;
     expect(march.startAt).toBe(10_000);
-    expect(insurgentMarchPoint(march, 10_000)).toMatchObject({ x: 70, y: 70, progress: 0 });
-    expect(insurgentMarchPoint(march, 13_000)).toMatchObject({ x: 71.5, y: 70 });
-    expect(insurgentMarchPoint(march, 16_000)).toBeUndefined();
+    expect(insurgentMarchPose(march, 10_000)).toMatchObject({ kind: "WALK", x: 70, y: 70, progress: 0 });
+    expect(insurgentMarchPose(march, 13_000)).toMatchObject({ kind: "WALK", x: 71.5, y: 70 });
+    expect(insurgentMarchPose(march, 16_000)).toBeUndefined();
+  });
+
+  // REGRESSION: the client drew a straight line from camp to launch tile while
+  // the server timed a route round water and hostile land, so the drawn company
+  // could cross the sea and arrive somewhere it never walked.
+  it("follows the route the server timed, not the straight line", () => {
+    // Round water at (71,70): camp (70,70) -> (71,71) -> launch (72,70).
+    const march = recordInsurgentMarch(message({
+      fromX: 72, toX: 73, marchMs: 4_000, transitEndsAt: 14_000,
+      legs: [{ kind: "WALK", points: [[70, 70], [71, 71], [72, 70]] }], legMs: [4_000]
+    }), 10_000)!;
+    expect(insurgentMarchPose(march, 12_000)).toMatchObject({ kind: "WALK", x: 71, y: 71 });
+    const halfway = insurgentMarchPose(march, 11_000)!;
+    expect(halfway).toMatchObject({ kind: "WALK", x: 70.5, y: 70.5 });
+  });
+
+  it("is aboard the transport for a dock crossing, then walks on from the landing", () => {
+    const march = recordInsurgentMarch(message({
+      campX: 10, campY: 10, fromX: 20, fromY: 10, toX: 21, toY: 10, marchMs: 10_000, transitEndsAt: 20_000,
+      legs: [
+        { kind: "WALK", points: [[10, 10], [11, 10]] },
+        { kind: "SAIL", from: [11, 10], to: [19, 10] },
+        { kind: "WALK", points: [[19, 10], [20, 10]] }
+      ],
+      legMs: [2_000, 6_000, 2_000]
+    }), 10_000)!;
+    expect(insurgentMarchPose(march, 11_000)).toMatchObject({ kind: "WALK", x: 10.5 });
+    expect(insurgentMarchPose(march, 15_000)).toMatchObject({ kind: "SAIL", from: { x: 11, y: 10 }, to: { x: 19, y: 10 } });
+    expect(insurgentMarchPose(march, 19_000)).toMatchObject({ kind: "WALK", x: 19.5 });
+  });
+
+  it("walks the straight line when the message carries no usable route", () => {
+    const march = recordInsurgentMarch(message({ legs: [{ kind: "WALK", points: [["x", 1]] }] }), 10_000)!;
+    expect(march.route.legs).toEqual([{ kind: "WALK", points: [{ x: 70, y: 70 }, { x: 71, y: 70 }, { x: 72, y: 70 }, { x: 73, y: 70 }] }]);
   });
 
   it("takes the short way over the world seam", () => {
-    const march = recordInsurgentMarch(message({ campX: WORLD_WIDTH - 1, fromX: 1, toX: 2 }), 10_000)!;
-    const point = insurgentMarchPoint(march, 13_000)!;
-    expect(point.x).toBeCloseTo(WORLD_WIDTH - 1 + 1, 5);
-    expect(point.facingLeft).toBe(false);
+    const march = recordInsurgentMarch(message({ campX: WORLD_WIDTH - 1, fromX: 1, toX: 2, legs: [{ kind: "WALK", points: [[WORLD_WIDTH - 1, 70], [0, 70], [1, 70]] }] }), 10_000)!;
+    const point = insurgentMarchPose(march, 13_000)!;
+    expect(point.kind === "WALK" ? point.x : NaN).toBeCloseTo(WORLD_WIDTH - 1 + 1, 5);
+    expect(point.kind === "WALK" && point.facingLeft).toBe(false);
   });
 
   it("drops a march once it arrives, and ignores one already over or malformed", () => {

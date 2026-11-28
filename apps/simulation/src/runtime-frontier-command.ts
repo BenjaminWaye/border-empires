@@ -17,7 +17,7 @@ import {
 import { isFrontierAdjacent } from "./frontier-adjacency/frontier-adjacency.js";
 import { superTileActionTarget } from "./landmark-super-tile/landmark-super-tile.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
-import { musterTransitMs } from "./muster-transit-delay/muster-transit-delay.js";
+import { musterTransitMs, musterTransitRoute } from "./muster-transit-delay/muster-transit-delay.js";
 import { campMarchOrigin, type CampMarch } from "./planetary-defense-camps/camp-march.js";
 import { parseFrontierPayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
@@ -318,9 +318,11 @@ export const handleFrontierCommandImpl = (
   }
   // Planetary Defense marches every action out of its camp, at the same rate (camp-march.ts).
   const campOrigin = musterOrigin ? undefined : campMarchOrigin(actor.id, ctx.tiles, resolvedOriginKey);
-  if (campOrigin) {
+  // The same route goes to the client, so it draws the company exactly where it was timed.
+  const campRoute = campOrigin ? musterTransitRoute({ tiles: ctx.tiles, dockLanding: ctx.dockLanding, playerId: actor.id, activeAetherBridgesForPlayer: ctx.activeAetherBridgesForPlayer, flag: campOrigin, launch: validation.origin }) : undefined;
+  if (campOrigin && campRoute) {
     musterOrigin = campOrigin;
-    transitMs = musterTransitMs({ tiles: ctx.tiles, dockLanding: ctx.dockLanding, playerId: actor.id, activeAetherBridgesForPlayer: ctx.activeAetherBridgesForPlayer, flag: campOrigin, launch: validation.origin });
+    transitMs = campRoute.transitMs;
   }
   const transitEndsAt = transitMs > 0 ? ctx.now() + transitMs : undefined;
   // Steam Vanguard's attackResolveSpeedReduceMs shaves time off an ATTACK's
@@ -455,8 +457,8 @@ export const handleFrontierCommandImpl = (
     });
   }
   ctx.scheduleLockResolution(lock);
-  if (campOrigin && transitEndsAt !== undefined) {
-    ctx.onCampMarch?.({ commandId: command.commandId, actionType, camp: campOrigin, from: validation.origin, to: validation.target, marchMs: transitMs, transitEndsAt, resolvesAt, serverNow: ctx.now() });
+  if (campOrigin && campRoute && transitEndsAt !== undefined) {
+    ctx.onCampMarch?.({ commandId: command.commandId, actionType, camp: campOrigin, from: validation.origin, to: validation.target, route: campRoute, transitEndsAt, resolvesAt, serverNow: ctx.now() });
   }
   // Attacking a House (any owned tile, frontier included; manual or muster
   // launched alike) ends every supply trade between the two. Barbarians hold

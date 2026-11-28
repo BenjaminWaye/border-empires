@@ -1,11 +1,11 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { PLANETARY_DEFENSE_ARMOR_COLOR } from "../client-planetary-defense-style.js";
 import { drawSoldierGlyph2D } from "../client-map-render/client-map-render-planetary-defense-overlay.js";
-import { activeInsurgentMarches, insurgentMarchPoint } from "./client-insurgent-march.js";
+import { activeInsurgentMarches, insurgentMarchPose } from "./client-insurgent-march.js";
 
 // 2D-canvas side of the insurgent march (client-insurgent-march.ts): a small
 // file of dark-grey soldiers walking from the camp to the tile the attack or
-// expansion launches from, the same glyphs the camp's own patrol uses
+// expansion launches from, along the route the server timed, the same glyphs the camp's own patrol uses
 // (client-map-render-planetary-defense-overlay.ts). Skipped below 10px tiles,
 // as the patrol is; with reduced motion the soldiers still move along the
 // route (that is the information) but don't swing their legs.
@@ -40,13 +40,13 @@ export function drawInsurgentMarches2D(
   const glyphH = Math.max(5, size * 0.34);
   ctx.save();
   for (const march of marches) {
-    const point = insurgentMarchPoint(march, nowEpochMs);
+    const point = insurgentMarchPose(march, nowEpochMs);
     // Launched from the camp tile itself: its patrol is already standing there.
-    if (!point || (march.campX === march.fromX && march.campY === march.fromY)) continue;
-    // Unit vector of travel, so the column trails behind its leader.
-    const lengthTiles = Math.hypot(point.x - march.campX, point.y - march.campY);
-    const ux = lengthTiles > 0 ? (point.x - march.campX) / lengthTiles : 0;
-    const uy = lengthTiles > 0 ? (point.y - march.campY) / lengthTiles : 0;
+    // At sea the troops are aboard; the 2D map has no transport to draw, so they reappear on landing.
+    if (!point || point.kind !== "WALK" || (march.campX === march.fromX && march.campY === march.fromY)) continue;
+    // Direction of the current step, so the column trails behind its leader.
+    const ux = point.dirX;
+    const uy = point.dirY;
     for (let i = 0; i < COLUMN_OFFSETS.length; i += 1) {
       const back = Math.min(COLUMN_OFFSETS[i]!, 0) * Math.min(1, point.progress * 4);
       const wx = point.x + ux * back - uy * COLUMN_SIDESTEP[i]!;
