@@ -241,19 +241,17 @@ sectors and cosmetics, built after the web and Android launch, with the iOS app 
 IAP is in. Android ships consumption-only and neither app links out at launch (recommendations
 1, 3 and 4 above). Decisions 2 and 4–7 are still open. Recorded in `gdd.md` §8.
 
-**Delegated decisions, 2026-11-28, pending the owner's confirmation.** The owner asked the
-parent agent session to make decisions overnight; these are its answers, and the owner may
-overturn any of them:
+**Decisions, 2026-11-28.** Made overnight by the parent agent session at the owner's request,
+then confirmed by the owner the same day, ages included:
 
 - **2. iOS price:** the same as the web (USD 20 per hosted sector, USD 4.99 for the Count
   bundle). Apple's 15 % is absorbed. iOS in-app purchase is still built after launch.
 - **4. US link-out:** no, not at launch (as already decided 2026-11-26).
 - **5. Fee tiers:** yes, enrol TIDN AB in Apple's Small Business Program and Google's 15 % tier.
   The owner does the enrolment.
-- **6. Age:** buying requires 18 or older (relayed as an owner decision of 2026-11-27; not yet
-  written elsewhere in the docs). Playing: **13 or older proposed**, because the parental-gate
-  rules for web offers in the EU, Japan and Brazil start at 13 and no web offers may reach
-  under-13s at all. **Needs the owner's confirmation.**
+- **6. Age:** buying requires 18 or older. Playing requires 13 or older, because the
+  parental-gate rules for web offers in the EU, Japan and Brazil start at 13 and no web offers
+  may reach under-13s at all.
 - **7. Who rechecks:** the owner, before each store submission and after the Supreme Court rules
   in Apple v. Epic (No. 25-1311). Agents flag it whenever they touch store or purchase code.
 
