@@ -64,9 +64,11 @@ export const joinClosedHtml = (message: string, sectorListHtml = ""): string => 
 
 /** INIT fields for the join card. Absent fields (older gateways) leave the card without day and bonus lines. */
 export const applyInitJoinScreenFields = (
-  state: Pick<ClientState, "seasonStartedAt" | "singleContest" | "joinSeasonClosedMessage">,
+  state: Pick<ClientState, "seasonStartedAt" | "singleContest" | "joinSeasonClosedMessage" | "joinSeasonWaiting">,
   msg: Record<string, unknown>
 ): void => {
+  // Every INIT opens the join card afresh (joinSeasonOverlayOpen), so a new contest never opens on the waiting view.
+  state.joinSeasonWaiting = false;
   state.seasonStartedAt = typeof msg.seasonStartedAt === "number" && Number.isFinite(msg.seasonStartedAt) ? msg.seasonStartedAt : 0;
   state.singleContest = msg.singleContest === true;
   state.joinSeasonClosedMessage = "";
