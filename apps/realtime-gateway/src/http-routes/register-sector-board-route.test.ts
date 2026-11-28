@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
 
 import { InMemorySectorWaitlistStore } from "../sector-waitlist-store/sector-waitlist-store.js";
-import { countHumanHouses, registerSectorBoardRoute } from "./register-sector-board-route.js";
+import { countAiHouses, countHumanHouses, registerSectorBoardRoute } from "./register-sector-board-route.js";
 
 const setup = (playerIds: string[], maxHouses: number, fail = false, landingSiteAvailable?: boolean) => {
   const app = Fastify();
@@ -25,12 +25,20 @@ describe("countHumanHouses", () => {
   });
 });
 
+// First-15 playtest 2026-11-28: the join card said "3 of 50 Houses" while Diplomacy listed 23 Houses not met
+// (the AI Houses). The board now reports them so the card can say so.
+describe("countAiHouses", () => {
+  it("counts AI empires only, not barbarians or humans", () => {
+    expect(countAiHouses(["alice", "ai-1", "ai-12", "barbarian", "barbarian-2", "ai-lover"])).toBe(2);
+  });
+});
+
 describe("GET /sector/board", () => {
   it("reports houses, cap and the waitlist for the current season", async () => {
     const { app, store } = setup(["alice", "bob", "ai-1"], 100);
     await store.join({ seasonId: "season-9", playerId: "carol", joinedAt: 1 });
     const response = await app.inject({ method: "GET", url: "/sector/board" });
-    expect(response.json()).toEqual({ ok: true, seasonId: "season-9", status: "active", houses: 2, maxHouses: 100, full: false, noLandingSite: false, waitingCount: 1, standings: [] });
+    expect(response.json()).toEqual({ ok: true, seasonId: "season-9", status: "active", houses: 2, maxHouses: 100, aiHouses: 1, full: false, noLandingSite: false, waitingCount: 1, standings: [] });
   });
 
   it("adds the start time and the top-5 standings, without player ids, for the Sector Map card", async () => {

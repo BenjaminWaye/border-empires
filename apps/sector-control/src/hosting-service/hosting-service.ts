@@ -13,7 +13,8 @@ import { createWithdrawalService } from "./hosting-withdrawal.js";
 import { createFundingService, type ContributionEvent, type FundingErrorCode, type FundingView } from "./hosting-funding.js";
 
 /** The signed-in caller, as verified from their Firebase ID token. */
-export type HostingAccount = { uid: string; isGuest: boolean; emailVerified: boolean };
+/** `email` is the token's address; it is kept only when verified, for the emails about a purchase (hosting-email). */
+export type HostingAccount = { uid: string; isGuest: boolean; emailVerified: boolean; email?: string };
 
 export type HostingErrorCode =
   | "SALES_CLOSED" | "ACCOUNT_REQUIRED" | "EMAIL_NOT_VERIFIED" | "ALREADY_HOSTING" | "PAYMENT_UNAVAILABLE"
@@ -69,6 +70,8 @@ export type HostingServiceDeps = {
   now: () => number;
   /** Random, URL-safe, lowercase. Injected so tests are deterministic. */
   newId: (length: number) => string;
+  /** Keeps the address of an account that buys or joins, for the emails about that sector (hosting-mailer.ts). */
+  rememberAddress?: (account: HostingAccount) => void;
 };
 
 /** A sector people can still be invited to and join. */
@@ -153,17 +156,24 @@ export const createHostingService = (deps: HostingServiceDeps) => {
       }
       const sector = store.getSector(sectorId);
       if (!sector) throw new Error(`sector ${sectorId} vanished after insert`);
+      deps.rememberAddress?.(account);
       return { ok: true, sector: view(sector, "host", account.uid) };
     },
 
     /** Split funding: open a bar instead of paying in full (plan section 12). */
     openFundingBar(account: HostingAccount, options: HostedSectorOptions): HostingResult<{ sector: SectorView }> {
       const opened = funding.openFundingBar(account, options);
-      return opened.ok ? { ok: true, sector: view(opened.sector, "host", account.uid) } : opened;
+      if (!opened.ok) return opened;
+      deps.rememberAddress?.(account);
+      return { ok: true, sector: view(opened.sector, "host", account.uid) };
     },
 
     /** Split funding: pledge a share. Returns the checkout to complete it. */
-    contribute: funding.contribute,
+    async contribute(account: HostingAccount, sectorId: string, amountCents: number, consent: unknown) {
+      const result = await funding.contribute(account, sectorId, amountCents, consent);
+      if (result.ok) deps.rememberAddress?.(account);
+      return result;
+    },
 
     /**
      * Applies a verified event from the payment provider. Safe to call any
@@ -256,6 +266,8 @@ export const createHostingService = (deps: HostingServiceDeps) => {
         if (store.countMembers(sector.sectorId) >= HOSTED_SECTOR_MAP_SIZES[sector.options.mapSize].humanPlaces) return fail("SECTOR_FULL", "This sector has no places left.");
         store.addMember({ sectorId: sector.sectorId, accountUid: account.uid, role: "member", joinedAt: now });
       }
+      // A member who did not pay still gets the warning before an idle sector closes.
+      deps.rememberAddress?.(account);
       return { ok: true, sector: view(sector, sector.hostUid === account.uid ? "host" : "member", account.uid) };
     },
 

@@ -1,15 +1,18 @@
-# Tax on hosted sectors — proposal for TIDN AB
+# Tax on hosted sectors and cosmetics — proposal for TIDN AB
 
 Status: active proposal
-Owner: Benjamin Waye, for TIDN AB; to be confirmed by TIDN AB's accountant
-Last verified: 2026-11-25 (agent review using web search results, not the source pages; see the review notes at the end)
+Owner: Benjamin Waye, for TIDN AB. Reviewed with AI skills instead of an accountant (owner decision, 2026-11-28)
+Last verified: 2026-11-28 (AI review using web search results, not the source pages; see the review notes at the end)
 Replaces: none. When confirmed, the settings below are applied in Stripe and the decision is recorded in `docs/gdd.md` §8.
 
 This answers question Q13 of [`hosted-sectors-plan.md`](hosted-sectors-plan.md). It was written by an agent and then
 checked by a second agent using web search results about the sources listed
-at the end; it could not open the pages themselves. **It is
-not tax advice.** Thresholds and rates change; every
-figure below must be checked by the accountant before the first sale. Stripe
+at the end; it could not open the pages themselves. On 2026-11-28 the owner
+decided that no accountant confirms it; an AI review with Anthropic's legal
+skills answered the accountant's questions instead
+([`legal-drafts/ai-review-2026-11-28.md`](legal-drafts/ai-review-2026-11-28.md),
+section 6). **It is not tax advice.** Thresholds and rates change; check the
+figures marked there before the first sale. Stripe
 collects tax but does not file it: registration and filing stay with TIDN AB
 (`docs/gdd.md` §8).
 
@@ -28,6 +31,12 @@ collects tax but does not file it: registration and filing stay with TIDN AB
    sale (the United Kingdom, below) are sold to from launch; the owner
    registers for UK VAT when the first UK consumer buys (owner decision,
    2026-11-27). No country is refused at payment.
+
+**Cosmetics are taxed the same way.** A cosmetic such as "Claim the title of
+Count" (USD 4.99 including tax) is an electronically supplied service like a
+hosted sector, with the same rates, threshold, registrations and Stripe
+settings. It counts toward the same EUR 10,000 threshold and the same UK, Norway
+and Switzerland rules. Swedish VAT in USD 4.99 is USD 1.00; UK VAT is USD 0.83.
 
 ## What the rules are
 
@@ -64,9 +73,21 @@ early:
 - **United Kingdom.** A business not established in the UK that sells digital
   services to UK consumers must register for UK VAT from its first sale; there
   is no registration threshold for non-established businesses (HMRC, VAT
-  Notice 741A). UK VAT is 20 %, USD 3.33 of a USD 20 price.
-- **Norway and Switzerland.** Both have thresholds for foreign sellers
-  (Norway on sales into Norway, Switzerland on worldwide turnover).
+  Notice 741A). UK VAT is 20 %, USD 3.33 of a USD 20 price. **Timing (AI review,
+  2026-11-28):** register within 30 days of the first UK sale, or of first
+  expecting one within 30 days, whichever is earlier (HMRC VATREG37050).
+  Registration takes effect from that date, and VAT on every sale from then
+  on goes on the first return. Because UK sales are planned from launch,
+  apply in the month before sales open, then add the UK registration in Stripe
+  Tax. The price includes tax, so buyers pay the same either way.
+- **Norway and Switzerland.** Both have thresholds for foreign sellers.
+  Norway: NOK 50,000 of sales to Norwegian consumers in 12 months (VOEC).
+  Switzerland: **CHF 100,000 of the company's worldwide turnover**, not of Swiss
+  sales. If TIDN AB's total turnover is at or above that, the first sale to a
+  Swiss consumer requires Swiss VAT registration and a Swiss tax
+  representative. The owner checks TIDN AB's turnover before launch; if it is
+  at or over the threshold, either register or block Swiss billing addresses
+  with a Radar rule.
 - **United States.** Sales tax is set by each state. Most states require a
   remote seller to register only above a yearly sales threshold in that state
   (commonly USD 100,000; a few also count the number of sales), and states
@@ -93,9 +114,9 @@ with the accountant.
 Stripe's payment fee and the Stripe Tax fee come off after that. Stripe Tax on
 the no-code (Checkout) plan costs 0.5 % of each transaction in a jurisdiction
 where a registration is added, about USD 0.10 a sale. Whether Stripe returns
-its payment fee when a sale is refunded was not checked in this review; the
-owner should confirm it on Stripe's pricing page, because withdrawals make
-partial refunds a normal event. The server
+its payment fee when a sale is refunded: it does not (Stripe support, "fees
+for refunded payments", checked by search on 2026-11-28), so a withdrawal
+costs the fee as well as the part refunded. The server
 costs about EUR 6 for a month (`hosted-sectors-plan.md` §14).
 
 ## Stripe settings
@@ -108,10 +129,10 @@ mode first.
 | Business address (origin) | TIDN AB's registered address in Sweden |
 | Tax registrations | Sweden, with TIDN AB's VAT number. Add "EU OSS (Union scheme)" when the accountant says so |
 | Default tax behaviour | Inclusive |
-| Product tax category | An electronically supplied service category; the accountant confirms which. Stripe's general one is "General - Electronically Supplied Services" |
+| Product tax category | "General - Electronically Supplied Services" (`txcd_10000000`, the code's default) for both hosted sectors and cosmetics. It gives the right EU and UK rate; revisit only if a US state registration is ever needed |
 | Checkout | Automatic tax on; full billing address required (`billing_address_collection: required`), which Stripe Tax uses to find the buyer's country; no business tax-ID field |
 | Countries not sold to | None. **Owner decision, 2026-11-27** (replaces 2026-11-26): the United Kingdom is not blocked. UK VAT is owed from the first sale to a UK consumer, since the UK has no threshold for a non-UK seller; the owner handles the UK VAT registration and returns when the first UK consumer buys. The accountant should confirm how soon after that first sale TIDN AB must register and account for the VAT |
-| EU under the threshold | Stripe's EU documentation describes tracking total EU sales against the EUR 10,000 small-seller limit. Before the first live sale, confirm in test mode that a buyer in another EU country is charged Swedish VAT at 25 % with only the Swedish registration added: Stripe Tax calculates tax only where a registration is added |
+| EU under the threshold | Answer "Yes" to Stripe Tax's EU small-seller question. Stripe's EU documentation describes tracking total EU sales against the EUR 10,000 small-seller limit. Before the first live sale, confirm in test mode that a buyer in another EU country is charged Swedish VAT at 25 % with only the Swedish registration added: Stripe Tax calculates tax only where a registration is added |
 
 In the code (plan PR 5): the Checkout Session is created with automatic tax
 enabled and the price marked tax-inclusive, and requires the buyer to accept
@@ -139,7 +160,12 @@ the Terms of Sale, including the request to start the service at once
   the part refunded is reversed; the accountant confirms Stripe records a
   partial refund this way.
 - Stripe keeps the evidence of where each buyer is (billing country and
-  network address), which the rules require the seller to hold.
+  network address), which the rules require the seller to hold. Export it, and
+  Stripe's payment, refund and tax reports, into the accounting system every
+  month: the Bookkeeping Act wants records in Sweden, or in another EU country
+  that Skatteverket has been told about, and Stripe is neither.
+- No invoice is required for sales to private persons in Sweden, OSS sales
+  included; Stripe's receipt is the buyer's proof of purchase.
 
 ## Questions for the accountant
 
@@ -147,6 +173,12 @@ The full list is in [`legal-drafts/README.md`](legal-drafts/README.md#points-the
 next to the lawyer's list, so both professionals see what the other is asked.
 Already answered by the owner on 2026-11-24: TIDN AB is registered for VAT in
 Sweden; its VAT number is SE559265324901.
+
+## AI review (2026-11-28)
+
+Answers to every accountant question, with sources and confidence, are in
+[`legal-drafts/ai-review-2026-11-28.md`](legal-drafts/ai-review-2026-11-28.md)
+section 6. That review also could not open the official pages.
 
 ## Review notes (2026-11-25)
 

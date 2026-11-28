@@ -56,4 +56,15 @@ describe("hosting service runtime env", () => {
     expect(() => parseSectorControlRuntimeEnv({ HOSTING_SQLITE_PATH: "/tmp/h.db" })).toThrow(/HOSTING_TICKET_PRIVATE_KEY/);
     expect(() => parseSectorControlRuntimeEnv({ ...base, HOSTING_PORT: "abc" })).toThrow(/HOSTING_PORT/);
   });
+  it("keeps emails in the outbox without a Resend key, and asks for a reply address and the web client's address with one", () => {
+    expect(parseSectorControlRuntimeEnv(base).email).toEqual({ from: "Border Empires <hosting@borderempires.com>", appUrl: "https://play.borderempires.com" });
+    const key = { ...base, HOSTING_EMAIL_RESEND_API_KEY: "re_abc" };
+    expect(() => parseSectorControlRuntimeEnv(key)).toThrow(/HOSTING_EMAIL_REPLY_TO/);
+    expect(() => parseSectorControlRuntimeEnv({ ...key, HOSTING_EMAIL_REPLY_TO: "help@example.test" })).toThrow(/HOSTING_APP_URL/);
+    expect(parseSectorControlRuntimeEnv({ ...key, HOSTING_EMAIL_REPLY_TO: "help@example.test", HOSTING_APP_URL: "https://play.example.test", HOSTING_TERMS_HTML_PATH: "/srv/terms.html" }).email)
+      .toEqual({ resendApiKey: "re_abc", from: "Border Empires <hosting@borderempires.com>", replyTo: "help@example.test", appUrl: "https://play.example.test", termsHtmlPath: "/srv/terms.html" });
+    expect(() => parseSectorControlRuntimeEnv({ ...base, HOSTING_APP_URL: "play.example.test" })).toThrow(/HOSTING_APP_URL must be/);
+    expect(() => parseSectorControlRuntimeEnv({ ...key, HOSTING_EMAIL_REPLY_TO: "help@example.test", HOSTING_APP_URL: "http://play.example.test" })).toThrow(/https/);
+    expect(() => parseSectorControlRuntimeEnv({ ...key, HOSTING_EMAIL_REPLY_TO: "Help <help>", HOSTING_APP_URL: "https://play.example.test" })).toThrow(/plain email address/);
+  });
 });

@@ -41,6 +41,7 @@ export type SectorBoardReply =
       status: string;
       houses: number;
       maxHouses: number;
+      aiHouses: number;
       full: boolean;
       noLandingSite: boolean;
       waitingCount: number;
@@ -68,6 +69,11 @@ export const topStandings = (standings: readonly SectorBoardStanding[] | undefin
 
 export const countHumanHouses = (playerIds: readonly string[]): number => playerIds.filter(isHumanHouse).length;
 
+// AI Houses hold land beside the humans and Diplomacy lists them, so the board
+// reports them too: the join card said "3 of 50 Houses" while Diplomacy listed
+// 23 not met (first-15 playtest 2026-11-28). They take no House place.
+export const countAiHouses = (playerIds: readonly string[]): number => playerIds.filter((id) => AI_ID.test(id)).length;
+
 export const registerSectorBoardRoute = (app: FastifyInstance, deps: SectorBoardRouteDeps): void => {
   app.get("/sector/board", async (_request, reply): Promise<SectorBoardReply> => {
     let occupancy: SectorOccupancy;
@@ -88,6 +94,7 @@ export const registerSectorBoardRoute = (app: FastifyInstance, deps: SectorBoard
       status: occupancy.status,
       houses,
       maxHouses,
+      aiHouses: countAiHouses(occupancy.playerIds),
       full: (maxHouses > 0 && houses >= maxHouses) || noLandingSite,
       noLandingSite,
       waitingCount,

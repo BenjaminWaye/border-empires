@@ -371,7 +371,7 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   renderHouseChargesPanel(state, { root: dom.hud, panelEl: dom.panelChargesEl, rerender: () => renderClientHud(deps), requestViewRefresh, sendGameMessage, wrapX, wrapY, now: Date.now, closePanel: () => setActivePanel(null), viewport: () => dom.canvas });
   renderDefensibilityPanels(state, dom, { keyFor, wrapX, wrapY, terrainAt, safeValue, fallbackCard });
-  bindWeakDefensibilityToggle(dom.hud, state, { keyFor, wrapX, wrapY, terrainAt, pushFeed, requestViewRefresh, rerender: () => renderClientHud(deps) });
+  bindWeakDefensibilityToggle(dom.hud, state, { keyFor, wrapX, wrapY, terrainAt, pushFeed, requestViewRefresh, rerender: () => renderClientHud(deps), closePanel: () => setActivePanel(null) });
 
   const economyPanelHtml = safeValue("renderEconomyPanelHtml", fallbackCard("Economy"), () =>
     hudEconomyPanelHtml(state, { prettyToken, resourceIconHtml, rateToneClass, resourceLabel, economicStructureName, hasRevealedResourceCategory })
