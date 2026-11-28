@@ -19,6 +19,7 @@ import { describeWebGLProbe, webGLProbe } from "../client-webgl-probe/client-web
 import { pixelRatioFor } from "../client-map-3d-pixel-ratio/client-map-3d-pixel-ratio.js";
 import { qualitySettingsFor } from "../client-map-3d-quality-tier/client-map-3d-quality-tier.js";
 import { isIOSSafari } from "../client-ios-safari-detect/client-ios-safari-detect.js";
+import { DEMOTED_PIXEL_RATIO, createFrameGovernor, rememberedSlowGpu, type FrameGovernor } from "../client-map-3d-frame-governor/client-map-3d-frame-governor.js";
 import {
   previousRendererAttempt,
   previousSessionEndedUncleanly
@@ -79,6 +80,8 @@ export type ThreeRenderTarget = {
   readonly renderer: WebGLRenderer;
   readonly contextGuard: WebGLContextGuard;
   readonly qualityTier: 0 | 1 | 2;
+  /** Renders each frame and backs quality off live when the GPU can't keep up. */
+  readonly frameGovernor: FrameGovernor;
 };
 
 /**
@@ -112,9 +115,12 @@ export const createThreeRenderTarget = (
     previousSessionEndedUncleanly: previousSessionEndedUncleanly(),
     isIOSSafari: isIOSSafari(window.navigator.userAgent)
   });
+  // A device demoted for sustained slow 3D frames (client-map-3d-frame-governor.ts)
+  // keeps MSAA off — it can only be chosen here, when the context is created.
+  const slowGpu = rememberedSlowGpu(Date.now());
   const renderer = new WebGLRenderer({
     canvas: glCanvas,
-    antialias: quality.antialias,
+    antialias: quality.antialias && !slowGpu,
     alpha: true,
     powerPreference: "high-performance"
   });
@@ -123,7 +129,10 @@ export const createThreeRenderTarget = (
   // pixel size, so the ratio here scales the drawing buffer without disturbing
   // layout — which is what makes rendering above 1:1 possible at all.
   renderer.setPixelRatio(
-    pixelRatioFor({ devicePixelRatio: window.devicePixelRatio, maxPixelRatio: quality.maxPixelRatio })
+    pixelRatioFor({
+      devicePixelRatio: window.devicePixelRatio,
+      maxPixelRatio: slowGpu ? Math.min(quality.maxPixelRatio, DEMOTED_PIXEL_RATIO) : quality.maxPixelRatio
+    })
   );
 
   // Filmic tone mapping gives the lit terrain/water/structure materials the
@@ -147,10 +156,11 @@ export const createThreeRenderTarget = (
   // pass (a wider filter kernel over the shadow map), which is the more
   // expensive side of shadow mapping on a scene already this instance-heavy.
   // Harder-edged shadows are the trade-off for not paying that twice.
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = !slowGpu;
   renderer.shadowMap.type = PCFShadowMap;
   // Use the atmosphere's exposure from the first frame, including local tuning.
   renderer.toneMappingExposure = getLightingSettings().exposure;
 
-  return { glCanvas, renderer, qualityTier: quality.tier, contextGuard: installWebGLContextGuard(glCanvas, onContextLost) };
+  const frameGovernor = createFrameGovernor({ renderer, startDemoted: slowGpu });
+  return { glCanvas, renderer, qualityTier: quality.tier, frameGovernor, contextGuard: installWebGLContextGuard(glCanvas, onContextLost) };
 };

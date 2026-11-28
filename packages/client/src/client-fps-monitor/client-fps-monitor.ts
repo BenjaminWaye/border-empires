@@ -22,6 +22,9 @@ export const holdLowFpsStreakForWarmup = (nowMs: number): void => {
   lowFpsStreakStart = 0;
 };
 
+/** True while low-fps readings are being ignored (see holdLowFpsStreakForWarmup). */
+export const isLowFpsWarmupHeld = (nowMs: number): boolean => nowMs < lowFpsHeldUntil;
+
 /** Page visibility hook: returning to the foreground starts a warm-up hold. */
 export const noteFpsMonitorVisibility = (visible: boolean, nowMs: number): void => {
   if (visible) holdLowFpsStreakForWarmup(nowMs);
