@@ -98,13 +98,16 @@ export const createBeaconPlacementOverlay = (scene: Scene): BeaconPlacementOverl
     reachFill.instanceMatrix.needsUpdate = true;
   };
 
+  const hide = (): void => {
+    commit(0);
+    outline.visible = false;
+  };
+
   const syncNewReach = (deps: PlacementOverlaySyncDeps): void => {
     const { x, y } = deps.state.buildingPlacement;
-    if (deps.tileVisibilityStateAt(x, y, deps.state.tiles.get(deps.keyFor(x, y))) !== "visible") {
-      commit(0);
-      return;
-    }
-    if (!deps.isPlacementValidForTile(deps.state.tiles.get(deps.keyFor(x, y)))) {
+    const tile = deps.state.tiles.get(deps.keyFor(x, y));
+    // An invalid spot shows only the red range ring (client-map-3d-placement-overlay.ts).
+    if (deps.tileVisibilityStateAt(x, y, tile) !== "visible" || !deps.isPlacementValidForTile(tile)) {
       hide();
       return;
     }
@@ -112,20 +115,15 @@ export const createBeaconPlacementOverlay = (scene: Scene): BeaconPlacementOverl
     const elapsed = beaconExpansionElapsedMs(x, y, deps.nowMs ?? performance.now());
     const still = prefersReducedMotion();
     let count = 0;
-    for (const tile of expansion.tiles) {
+    for (const added of expansion.tiles) {
       if (count >= MAX_NEW_REACH_TILES) break;
-      const fill = beaconExpansionTileFill(tile.ring, elapsed, still);
+      const fill = beaconExpansionTileFill(added.ring, elapsed, still);
       if (fill <= 0) continue;
-      placeAt(count, deps, tile.x, tile.y, fill);
+      placeAt(count, deps, added.x, added.y, fill);
       count += 1;
     }
     commit(count);
     syncOutline(deps, expansion);
-  };
-
-  const hide = (): void => {
-    commit(0);
-    outline.visible = false;
   };
 
   const sync = (deps: PlacementOverlaySyncDeps): void => {
