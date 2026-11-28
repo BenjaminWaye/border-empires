@@ -183,3 +183,28 @@ describe("dealVerdictOverride for an ally", () => {
     expect(verdict?.text).toBe("Coin changes hands with a resource supply. Add one to the deal.");
   });
 });
+
+// First-15 playtest r1 (pt-diplomat): the hint said "Pick a truce or alliance" while the only alliance
+// button read "Swear fealty", so the player hunted for an alliance option that wasn't there.
+describe("treaty hint names the buttons on screen", () => {
+  afterEach(() => closeDiplomacyTradeScreen());
+  const emptyTerms = { give: { gold: 0 }, ask: { gold: 0 } };
+
+  it("says Swear fealty / Demand fealty when that is the alliance button", () => {
+    expect(dealVerdictOverride(undefined, "trade", emptyTerms, "Send offer", false, "SWEAR")?.text).toBe("Pick a truce or Swear fealty, or add goods from either side.");
+    expect(dealVerdictOverride(undefined, "trade", emptyTerms, "Send offer", false, "DEMAND")?.text).toBe("Pick a truce or Demand fealty, or add goods from either side.");
+    expect(dealVerdictOverride(undefined, "trade", { give: { gold: 0 }, ask: { gold: 10 } }, "Send offer", false, "SWEAR")?.text)
+      .toBe("Coin changes hands with a truce, Swear fealty or a resource supply. Add one to the deal.");
+  });
+
+  it("matches the button the open screen shows", () => {
+    const send = vi.fn().mockReturnValue(true);
+    openDiplomacyTradeScreen({ targetName: "Tove", targetPlayerId: "ai-1", kind: "truce", durationHours: 12 },
+      { send, ownHoldings: () => ({ gold: 100 }), fealtyWith: () => "SWEAR" });
+    const overlay = document.querySelector<HTMLElement>(".diplomacy-trade-overlay")!;
+    overlay.querySelector<HTMLButtonElement>("[data-trade-kind='truce:12']")!.click();
+    overlay.querySelector<HTMLButtonElement>("[data-deal-remove='treaty']")!.click();
+    expect(overlay.querySelector("[data-trade-kind='alliance:0']")?.textContent).toBe("Swear fealty");
+    expect(overlay.querySelector("[data-trade-verdict]")?.textContent).toBe("Pick a truce or Swear fealty, or add goods from either side.");
+  });
+});

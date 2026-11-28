@@ -22,6 +22,7 @@ import { serverClock } from "../client-server-clock/client-server-clock.js";
 import { emitSalvageDeliveries } from "../client-salvage-delivery-fx/client-salvage-delivery-detect.js";
 import { battleWarnings, detectOwnTileLosses, recordOwnTileLosses } from "../client-battle-warnings/client-battle-warnings.js";
 import { snapshotSalvageLoadsShipped } from "../client-salvage-delivery-fx/client-salvage-delivery-fx.js";
+import { confirmBuildsFromTiles } from "../client-action-toast/client-build-confirm.js";
 
 export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string; waystationJson?: string };
 
@@ -146,6 +147,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     if (state.hasOwnedTileInCache) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; }
   }
   if (resolvedQueuedFrontierCapture) deps.resolveFrontierCapture("TILE_DELTA_BATCH");
+  if (Array.isArray(tileUpdates)) confirmBuildsFromTiles(tileUpdates.map((u) => keyFor(u.x, u.y)), (key) => state.tiles.get(key), state.me);
   // F5: dismiss a stale arrow-gesture confirm sheet if this batch reveals the
   // armed origin flag is no longer ours (see client-arrow-gesture-confirm-invalidate.ts).
   if (Array.isArray(tileUpdates) && arrowGestureConfirmInvalidatedByTileDeltaBatch(state, tileUpdates, keyFor)) {

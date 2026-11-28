@@ -167,3 +167,31 @@ describe("ranks crests for empires sharing an initial (playtest 2026-11-12: Alde
     expect(html).toMatch(/class="v2r-crest "[^>]*>T<\/span>/);
   });
 });
+
+// First-15 playtest r1 (pt-warlord): "10th place 107, and I'm not in the list any more". The row below the
+// top ten relied on selfOverall alone; a leaderboard without it (a cached summary's board) dropped you.
+describe("your own standing below the top ten", () => {
+  const entry = (id: string, rank: number): LeaderboardOverallEntry => ({ id, name: id, rank, score: 200 - rank, tiles: 1, incomePerMinute: 0, techs: 0, manpowerCap: 0 });
+  const overall = Array.from({ length: 14 }, (_, i) => entry(i === 12 ? "me" : `p${i + 1}`, i + 1));
+  const rows = (html: string): string[] => html.match(/<button[^>]*class="v2r-stand[^>]*>[\s\S]*?<\/button>/g) ?? [];
+
+  it("shows your row with its rank under the list even without selfOverall", () => {
+    const html = ranksBodyHtml({ me: "me", objectives: [], overall, selfOverall: undefined, nameOf: (id) => id, colorOf: () => undefined });
+    const shown = rows(html);
+    expect(shown).toHaveLength(11);
+    expect(shown[10]).toContain("v2r-stand-you");
+    expect(shown[10]).toContain('class="v2r-rank">13</span>');
+    expect(html).toContain("v2r-stand-gap");
+  });
+
+  it("ignores a selfOverall that is someone else's entry", () => {
+    const html = ranksBodyHtml({ me: "me", objectives: [], overall, selfOverall: entry("p2", 2), nameOf: (id) => id, colorOf: () => undefined });
+    expect(rows(html)[10]).toContain('class="v2r-rank">13</span>');
+  });
+
+  it("adds nothing when you are already in the top ten", () => {
+    const html = ranksBodyHtml({ me: "p3", objectives: [], overall, selfOverall: entry("p3", 3), nameOf: (id) => id, colorOf: () => undefined });
+    expect(rows(html)).toHaveLength(10);
+    expect(html).not.toContain("v2r-stand-gap");
+  });
+});

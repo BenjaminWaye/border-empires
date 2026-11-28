@@ -5,6 +5,7 @@ import { ATTACK_EN_ROUTE_ENTRY } from "./client-changelog-attack-en-route.js";
 import { INSURGENTS_ENTRY } from "./client-changelog-insurgents.js";
 import { SETTINGS_MENU_TIDY_ENTRY } from "./client-changelog-settings-menu-tidy.js";
 import { LANDING_WAIT_ENTRY } from "./client-changelog-landing-wait.js";
+import { ACTION_CONFIRMATIONS_ENTRY } from "./client-changelog-action-confirmations.js";
 
 export const NOV_27_28_CHANGELOG: ClientChangelogEntry[] = [
   { ...GUIDE_ISLAND_DOCK_ENTRY, createdAt: 1795779416929, },
@@ -12,4 +13,5 @@ export const NOV_27_28_CHANGELOG: ClientChangelogEntry[] = [
   { ...INSURGENTS_ENTRY, createdAt: 1795780690085, },
   { ...SETTINGS_MENU_TIDY_ENTRY, createdAt: 1795792563517, },
   { ...LANDING_WAIT_ENTRY, createdAt: 1795824207646, },
+  { ...ACTION_CONFIRMATIONS_ENTRY, createdAt: 1795850372760, },
 ];

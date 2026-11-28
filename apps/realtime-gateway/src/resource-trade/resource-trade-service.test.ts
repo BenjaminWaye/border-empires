@@ -162,3 +162,20 @@ describe("resource trade counter-offers",()=>{
     expect(f.social.resourceTradeOffers.rows(1)).toEqual([]);
   });
 });
+describe("RESOURCE_TRADE_ACCEPTED",()=>{
+  const acceptedPayloads=(fanout:ReturnType<typeof vi.fn>)=>fanout.mock.calls.flatMap(([byPlayer])=>[...(byPlayer as Map<string,unknown[]>).entries()]
+    .flatMap(([id,payloads])=>payloads.filter(p=>(p as {type?:string}).type==="RESOURCE_TRADE_ACCEPTED").map(p=>({id,p}))));
+  // Regression (first-15 playtest r1, pt-diplomat): an AI accepting a trade said nothing; only the coin dropped.
+  it("tells both Houses once the AI's acceptance is paid",async()=>{
+    const f=setup(true);await f.service.handle(request,"a",f.socket,false);
+    const sent=acceptedPayloads(f.fanout);
+    expect(sent.map(s=>s.id).sort()).toEqual(["a","b"]);
+    expect(sent[0]?.p).toMatchObject({fromPlayerId:"a",toPlayerId:"b",fromPlayerName:"A",toPlayerName:"B"});
+  });
+  it("says nothing while the payment is unsettled or refused",async()=>{
+    const f=setup();f.settle.mockResolvedValueOnce({ok:false,message:"Timeout",pending:true});
+    await f.service.handle(request,"a",f.socket,false);const row=f.social.resourceTradeOffers.rows(1)[0]!;
+    await f.service.handle({type:"RESOURCE_TRADE_ACCEPT",offerId:row.id},"b",f.socket,false);
+    expect(acceptedPayloads(f.fanout)).toEqual([]);
+  });
+});

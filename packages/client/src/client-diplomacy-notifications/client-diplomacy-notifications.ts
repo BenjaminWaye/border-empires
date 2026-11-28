@@ -9,6 +9,7 @@ import type { ActiveAllianceBreakView, ActiveTruceView, AllianceRequest, RecentA
 import { incomingAllianceHeadline, type FealtyStanding } from "../client-fealty/client-fealty.js";
 import { allianceAnswerCounterpart, fealtyAnnouncement, fealtyAnswerTitle } from "../client-fealty/client-fealty-announcement.js";
 import { allianceFealtyFromMessage, recordedFealtyLookupFor, recordedFealtyStanding } from "../client-fealty/client-fealty-recorded.js";
+import { firstSentence, showActionToast } from "../client-action-toast/client-action-toast.js";
 
 type DiplomacyNotificationState = Pick<ClientState, "me" | "notifiedIncomingDiplomacyRequestIds" | "notifiedDiplomacyIdsLoadedFor">;
 
@@ -124,6 +125,7 @@ export const applyTruceUpdateMessage = (
   const previousLatestBreakAt = latestBreakAt(state.truceBreaksThisSeason);
   state.activeTruces = (msg.activeTruces as any[]) ?? state.activeTruces;
   state.truceBreaksThisSeason = (msg.truceBreaksThisSeason as any[]) ?? state.truceBreaksThisSeason;
+  const answeredIncoming = answeredOutgoingOffer(state.incomingTruceRequests, msg.incomingTruceRequests);
   state.incomingTruceRequests = (msg.incomingTruceRequests as any[]) ?? state.incomingTruceRequests;
   const answeredOutgoing = answeredOutgoingOffer(state.outgoingTruceRequests, msg.outgoingTruceRequests);
   state.outgoingTruceRequests = (msg.outgoingTruceRequests as any[]) ?? state.outgoingTruceRequests;
@@ -149,11 +151,14 @@ export const applyTruceUpdateMessage = (
   if (broken && !iBrokeIt) deps.showCaptureAlert("Truce broken", announcement, "warn");
   // An agreed truce shows in the Diplomacy list; only a refusal interrupts.
   else if (answeredOutgoing && declined) deps.showCaptureAlert("Truce declined", announcement, "warn");
+  // The server agreed a deal one side offered: say so on screen, not only in the (admin-only) feed.
+  else if (tone === "success" && (answeredOutgoing || answeredIncoming)) showActionToast(firstSentence(announcement));
 };
 
 /**
  * True when an update drops one of your own pending offers: the other House
- * answered it (or you withdrew it, which carries no announcement). The answer
+ * answered it (or you withdrew it, which carries no announcement). Also used
+ * on the incoming list: you answered an offer made to you. The answer
  * is a popup, not just an Activity-feed line, since the deal screen promised
  * one ("Waiting for …") and the feed is off-screen on a phone.
  */
@@ -205,6 +210,7 @@ export const applyAllianceUpdateMessage = (
   state.allianceFealty = allianceFealtyFromMessage(msg.allianceFealty);
   state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? state.activeAllianceBreaks;
   state.recentAllianceBreaks = (msg.recentAllianceBreaks as any[] | undefined) ?? state.recentAllianceBreaks;
+  const answeredIncoming = answeredOutgoingOffer(state.incomingAllianceRequests, msg.incomingAllianceRequests);
   state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
   const answeredOutgoing = answeredOutgoingOffer(state.outgoingAllianceRequests, msg.outgoingAllianceRequests);
   state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
@@ -219,6 +225,7 @@ export const applyAllianceUpdateMessage = (
   const tone = plain.tone;
   deps.pushFeed(announcement, "alliance", tone === "success" ? "success" : tone);
   if (answeredOutgoing && tone !== "success") deps.showCaptureAlert(title, announcement, tone);
+  else if (tone === "success" && (answeredOutgoing || answeredIncoming)) showActionToast(firstSentence(announcement));
 };
 
 export const notifyIncomingDiplomacyRequestsOnInit = (
