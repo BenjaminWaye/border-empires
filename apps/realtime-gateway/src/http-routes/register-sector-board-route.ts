@@ -1,16 +1,31 @@
 // GET /sector/board: what the join screen's Sector board shows before a
 // player commits to the current Sector Contest -- how many Houses hold it,
-// the cap, whether it is full, and how many are waiting for the next one.
-// Public and unauthenticated like /hq/summary: every value here is already
+// the cap, whether it is full, and how many are waiting for the next one,
+// plus the contest's start time and top-5 standings for the Sector Map's
+// sector card (docs/sector-map-plan.md §4.1). Public and unauthenticated like /hq/summary: every value here is already
 // visible to anyone on the leaderboard or the full-Sector screen.
 import type { FastifyInstance } from "fastify";
 
 import type { SectorWaitlistStore } from "../sector-waitlist-store/sector-waitlist-store.js";
 
-// landingSiteAvailable: from the simulation's landing-site probe (active
-// seasons only). false = no viable landing site, so the sector is full even
-// with House places left (GDD §6, owner decision 2026-11-27).
-export type SectorOccupancy = { seasonId: string; status: string; playerIds: readonly string[]; landingSiteAvailable?: boolean };
+/** One row of a sector's Current Standings, as the Sector Map card shows it: no player ids. */
+export type SectorBoardStanding = { rank: number; name: string; score: number };
+
+export type SectorOccupancy = {
+  seasonId: string;
+  status: string;
+  playerIds: readonly string[];
+  /** From the simulation's landing-site probe (active seasons only). false = no viable landing
+   * site, so the sector is full even with House places left (GDD §6, owner decision 2026-11-27). */
+  landingSiteAvailable?: boolean;
+  /** When the contest started; the client derives its day and the landing manpower from it. */
+  startedAt?: number;
+  /** The overall leaderboard, best first or not; the route keeps the top SECTOR_BOARD_STANDINGS. */
+  standings?: readonly SectorBoardStanding[];
+};
+
+/** How many Current Standings rows the board carries (docs/sector-map-plan.md §4.1). */
+export const SECTOR_BOARD_STANDINGS = 5;
 
 export type SectorBoardRouteDeps = {
   store: Pick<SectorWaitlistStore, "count">;
@@ -20,7 +35,19 @@ export type SectorBoardRouteDeps = {
 };
 
 export type SectorBoardReply =
-  | { ok: true; seasonId: string; status: string; houses: number; maxHouses: number; aiHouses: number; full: boolean; noLandingSite: boolean; waitingCount: number }
+  | {
+      ok: true;
+      seasonId: string;
+      status: string;
+      houses: number;
+      maxHouses: number;
+      aiHouses: number;
+      full: boolean;
+      noLandingSite: boolean;
+      waitingCount: number;
+      startedAt?: number;
+      standings: SectorBoardStanding[];
+    }
   | { ok: false; error: string };
 
 // The join cap counts human players only (season-join-capacity.ts), so AI
@@ -33,6 +60,12 @@ export type SectorBoardReply =
 const AI_ID = /^ai-\d+$/;
 const BARBARIAN_ID = /^barbarian(-\d+)?$/;
 const isHumanHouse = (playerId: string): boolean => !AI_ID.test(playerId) && !BARBARIAN_ID.test(playerId);
+
+export const topStandings = (standings: readonly SectorBoardStanding[] | undefined): SectorBoardStanding[] =>
+  [...(standings ?? [])]
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, SECTOR_BOARD_STANDINGS)
+    .map(({ rank, name, score }) => ({ rank, name, score }));
 
 export const countHumanHouses = (playerIds: readonly string[]): number => playerIds.filter(isHumanHouse).length;
 
@@ -64,7 +97,9 @@ export const registerSectorBoardRoute = (app: FastifyInstance, deps: SectorBoard
       aiHouses: countAiHouses(occupancy.playerIds),
       full: (maxHouses > 0 && houses >= maxHouses) || noLandingSite,
       noLandingSite,
-      waitingCount
+      waitingCount,
+      ...(occupancy.status === "active" && typeof occupancy.startedAt === "number" && occupancy.startedAt > 0 ? { startedAt: occupancy.startedAt } : {}),
+      standings: topStandings(occupancy.standings)
     };
   });
 };
