@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { announceFrontierClaim } from "../client-action-toast/client-claim-confirm.js";
+import { announceFrontierClaim } from "../client-action-markers/client-claim-confirm.js";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 

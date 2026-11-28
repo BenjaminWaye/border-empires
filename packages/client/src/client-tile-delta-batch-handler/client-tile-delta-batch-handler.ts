@@ -22,7 +22,7 @@ import { serverClock } from "../client-server-clock/client-server-clock.js";
 import { emitSalvageDeliveries } from "../client-salvage-delivery-fx/client-salvage-delivery-detect.js";
 import { battleWarnings, detectOwnTileLosses, recordOwnTileLosses } from "../client-battle-warnings/client-battle-warnings.js";
 import { snapshotSalvageLoadsShipped } from "../client-salvage-delivery-fx/client-salvage-delivery-fx.js";
-import { confirmBuildsFromTiles } from "../client-action-toast/client-build-confirm.js";
+import { confirmBuildsFromTiles } from "../client-action-markers/client-build-confirm.js";
 
 export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string; waystationJson?: string };
 

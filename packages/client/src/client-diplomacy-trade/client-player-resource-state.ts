@@ -1,6 +1,6 @@
 import type { ClientState } from "../client-state/client-state.js";
 import { applyResourceTradeState } from "./client-resource-trade-state.js";
-import { showActionToast } from "../client-action-toast/client-action-toast.js";
+import { showDealMarker, type DealAnchorState } from "../client-action-markers/client-deal-marker.js";
 /** Apply the same resource state on updates as on initial connection. */
 export function applyPlayerResourceState(state: ClientState, payload: Record<string, unknown>): void {
   applyResourceTradeState(state, payload);
@@ -16,11 +16,26 @@ export const resourceTradeAcceptedText = (me: string | undefined, payload: Recor
   return fromPlayerId === me ? `${toPlayerName} accepted your trade` : `Trade with ${fromPlayerName} agreed`;
 };
 
-export function applyResourceTradeMessage(state: Parameters<typeof applyResourceTradeState>[0] & { me?: string }, payload: Record<string, unknown>): boolean {
-  // Sent by the gateway only after the simulation paid the deal (resource-trade-service.ts).
+/** The other House in an accepted trade. */
+const tradeCounterpart = (me: string | undefined, payload: Record<string, unknown>): string | undefined => {
+  const other = payload.fromPlayerId === me ? payload.toPlayerId : payload.fromPlayerId;
+  return typeof other === "string" ? other : undefined;
+};
+
+type TradeFeed = (message: string, type: "alliance", severity: "success") => void;
+
+export function applyResourceTradeMessage(
+  state: Parameters<typeof applyResourceTradeState>[0] & { me?: string } & DealAnchorState,
+  payload: Record<string, unknown>,
+  pushFeed?: TradeFeed
+): boolean {
+  // Sent by the gateway only after the simulation paid the deal (resource-trade-service.ts). The feed says
+  // who; the map marks it on the other House's land when any of it is known (client-deal-marker.ts).
   if (payload.type === "RESOURCE_TRADE_ACCEPTED") {
     const text = resourceTradeAcceptedText(state.me, payload);
-    if (text) showActionToast(text);
+    if (!text) return true;
+    pushFeed?.(text, "alliance", "success");
+    showDealMarker(state, tradeCounterpart(state.me, payload), "Trade agreed");
     return true;
   }
   if (payload.type !== "RESOURCE_TRADE_UPDATE") return false;

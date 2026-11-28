@@ -1,11 +1,11 @@
-// "Hydrogarden started" once the server's tile update shows the structure a
-// player just ordered (first-15 playtest r1, pt-worldbuilder: "Build
+// "Hydrogarden started" on the tile once the server's tile update shows the
+// structure a player just ordered (first-15 playtest r1, pt-worldbuilder: "Build
 // Hydrogarden… closed with no confirmation"). The client paints nothing
 // optimistically, so the order is only remembered here when it is sent and
 // confirmed when TILE_DELTA_BATCH carries the structure. A rejection never
 // shows the structure, so it never confirms; the entry just expires.
 import type { Tile } from "../client-types.js";
-import { showActionToast } from "./client-action-toast.js";
+import { showActionMarker } from "./client-action-markers.js";
 
 /** How long a sent build waits for the server's tile update before it is forgotten. */
 export const BUILD_CONFIRM_WAIT_MS = 60_000;
@@ -43,7 +43,8 @@ export const confirmBuildsFromTiles = (tileKeys: Iterable<string>, tileAt: (key:
     const structure = structureOn(tile, build.structureType);
     if (!structure || tile?.ownerId !== me || (build.hadStructure && structure.status !== "under_construction")) continue;
     pending.delete(key);
-    showActionToast(structure.status === "under_construction" ? `${build.name} started` : `${build.name} built`);
+    if (!tile) continue;
+    showActionMarker(tile.x, tile.y, structure.status === "under_construction" ? `${build.name} started` : `${build.name} built`, nowMs);
   }
   for (const [key, build] of pending) if (build.until < nowMs) pending.delete(key);
 };

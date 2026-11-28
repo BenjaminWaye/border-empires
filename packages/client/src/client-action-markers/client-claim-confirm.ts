@@ -1,14 +1,14 @@
 // What a FRONTIER_RESULT (the server finished a claim) tells the player.
 // Extracted from client-network.ts (over the 500-line limit) when the claim
-// toast was added (first-15 playtest r1, pt-predator: "After an expand, a
+// confirmation was added (first-15 playtest r1, pt-predator: "After an expand, a
 // clearer 'claimed' confirmation"). A manual claim writes the feed line and
 // hands the battle screen its result as before. Every claim the player can't
-// already see resolve gets a short "Land claimed": the last tile of an
+// already see resolve gets a "+1 tile" marker on the map: the last tile of an
 // Expand To, or a single claim. Tiles in the middle of a longer Expand To
 // stay quiet (that silence is why the chain is silent), and a town has its
 // own "Town Captured" card.
 import { focusFromAlert } from "../client-alerts/client-alerts.js";
-import { showActionToast } from "./client-action-toast.js";
+import { showActionMarker } from "./client-action-markers.js";
 
 type Point = { x: number; y: number };
 
@@ -47,7 +47,7 @@ export const announceFrontierClaim = (input: FrontierClaimInput, deps: FrontierC
   }
   if (!target || input.actionType === "ATTACK" || input.claimedTown) return;
   if (input.silent && midChain(target, input.waypointTargets)) return;
-  showActionToast("Land claimed");
+  showActionMarker(target.x, target.y, "+1 tile");
 };
 
 const appendFeedEntryFor = (deps: FrontierClaimDeps, alert: { title: string; detail: string; focusX?: number; focusY?: number; actionLabel?: string }): void =>

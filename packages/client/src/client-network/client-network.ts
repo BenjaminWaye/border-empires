@@ -31,7 +31,7 @@ import { clearAllAttacksAfterCancel, detachedCombatResultPayload, detachLockedAt
 import { settleCombatResultSlot } from "../client-combat-result-slot/client-combat-result-slot.js";
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, combatSnapshotFromLockedResult, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { applyPlayerUpdateIntegrityWithNotices } from "../client-integrity-drop/client-player-update-integrity-notices.js"; import { applyPlayerUpdateAchievementsAndCelebrate } from "../client-unlock-celebration/client-unlock-celebration-triggers.js";
-import { announceFrontierClaim } from "../client-action-toast/client-claim-confirm.js";
+import { announceFrontierClaim } from "../client-action-markers/client-claim-confirm.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, raidResultFeedEntry } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, hasGatewayOverlayField, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
@@ -977,7 +977,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     if (msg.type === "JOIN_SEASON_ACK") { state.joinSeasonPending = false; if (msg.spawned) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; applyJoinSeasonSpawnRecenter(state, parseJoinSeasonAckSpawnTile(msg.spawnTile), requestViewRefreshSafely); } renderHud(); return; }
     if (applyMapPushMessage(state, msg as Record<string, unknown>, renderHud)) return; // REACH_UPDATE / AETHER_SHIELDS / ISLAND_NAMES
     if (applyAfcHijackMessage(state, msg as Record<string, unknown>)) { renderHud(); return; } // AFC_HIJACKS / AFC_HIJACK_OUTCOME / AFC_BREAKTHROUGH
-    if (applyResourceTradeMessage(state, msg)) { renderHud(); return; }
+    if (applyResourceTradeMessage(state, msg, typeof pushFeed === "function" ? pushFeed : undefined)) { renderHud(); return; }
     if (msg.type === "PLAYER_UPDATE") {
       applyAfcStateMessage(state, msg);
       applySettlementRepairDiagnostic(msg as Record<string, unknown>);

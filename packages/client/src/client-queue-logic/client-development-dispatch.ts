@@ -3,7 +3,7 @@
 // garrison, manpower -- frees up. Extracted from client-queue-logic.ts
 // (oversized), which re-exports everything here.
 import { announceBuildPlaced } from "./client-build-placed-feedback.js";
-import { expectBuildConfirmation } from "../client-action-toast/client-build-confirm.js";
+import { expectBuildConfirmation } from "../client-action-markers/client-build-confirm.js";
 import { SETTLE_COST, captureHoldSettleFloorMs, type ChosenStructureTier } from "@border-empires/shared";
 import { canAffordCost, settleDurationMsForTile } from "../client-constants.js";
 import { debugTileLog, tileMatchesDebugKey } from "../client-debug/client-debug.js";
