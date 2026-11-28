@@ -122,11 +122,18 @@ export const enqueueFullscreenCard = (card: FullscreenCard): void => {
 /**
  * Takes the slot for a self-managed card when nothing is showing or waiting;
  * returns its release, or undefined. `mounted` is the card's element, appended
- * to the page right after a successful claim.
+ * to the page right after a successful claim. `requested` marks a card the
+ * player just asked for (a map pin tap): the notice hold is for unprompted
+ * cards, and the tap that asked for this one would otherwise hold it back
+ * (a survey pin did nothing when tapped, 2026-11-28).
  */
-export const tryClaimFullscreenCard = (key: FullscreenCardKey, mounted: MountedFullscreenCard): (() => void) | undefined => {
+export const tryClaimFullscreenCard = (
+  key: FullscreenCardKey,
+  mounted: MountedFullscreenCard,
+  options: { readonly requested?: boolean } = {}
+): (() => void) | undefined => {
   flush();
-  if (active || queue.length > 0 || held()) return undefined;
+  if (active || queue.length > 0 || (!options.requested && held())) return undefined;
   const token = {};
   active = { key, token, mounted };
   return () => release(token);

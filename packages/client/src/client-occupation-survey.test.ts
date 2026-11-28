@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "./client-event-log-html.js";
 import { occupationSurveyController } from "./client-occupation-survey.js";
 import { manifestFit } from "./client-manifest-detail/client-manifest-fit.js";
+import { resetFullscreenCardQueueForTests, setFullscreenCardHold } from "./client-fullscreen-card-queue/client-fullscreen-card-queue.js";
 
 const tech = (id: string) => ({
   id,
@@ -66,6 +67,7 @@ describe("occupation survey presentation", () => {
     occupationSurveyController.beginCapture();
     occupationSurveyController.endCapture([]);
     occupationSurveyController.reconcile([], []);
+    resetFullscreenCardQueueForTests();
     vi.useRealTimers();
   });
 
@@ -98,6 +100,16 @@ describe("occupation survey presentation", () => {
     expect(view).toHaveBeenCalledWith(expect.objectContaining({ resource: "TITANIUM", x: 14, y: 10 }));
     expect(document.querySelector(".occupation-survey-overlay")).toBeNull();
     expect(pending()).toEqual([]);
+  });
+
+  // 2026-11-28: the notice gate holds unprompted cards for a moment after any press, and the pin's own tap is a
+  // press, so tapping a survey pin did nothing. A pin tap is the player asking: it opens through the hold.
+  it("opens the card from a pin tap while unprompted notices are held", () => {
+    setFullscreenCardHold(() => true);
+    occupationSurveyController.record(entry());
+    sync(true);
+    tapFirstPin();
+    expect(dialog()?.textContent).toContain("Signs of Titanium nearby");
   });
 
   // Playtest day 1 (optimiser): the popup sent players to "Activity → Yours", a screen that no longer exists.
