@@ -52,11 +52,11 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import { runtimeLogInfo } from "./runtime-log/runtime-log.js";
 import { VisionFootprintMemo, packOffsets, unpackOffsets, type PackedFootprint, type VisionFootprintMemoStats } from "./vision-footprint-memo.js";
 
-// Per tier and per generation. The S3 snapshot (43k owned tiles) held 16.7k
-// entries across both tiers, so two generations of this size keep the live
-// working set of a mature map while capping the worst case at about 4 x 16k
-// packed footprints.
-export const VISION_FOOTPRINT_MEMO_GENERATION_SIZE = 16_384;
+// Per tier and per generation. Most entries are the cheap "no occluder"
+// marker (about 20 bytes average in a 46k-tile world); 16k per generation
+// rolled over every hour or so there, so this is doubled. Worst case, every
+// entry an occluded footprint (~200 bytes packed): about 25 MB per tier.
+export const VISION_FOOTPRINT_MEMO_GENERATION_SIZE = 32_768;
 
 export type VisionFootprintTableDeps = {
   /** Live (mutable) terrain lookup — must reflect CREATE_MOUNTAIN/REMOVE_MOUNTAIN. */

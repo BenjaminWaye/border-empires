@@ -6,7 +6,7 @@
 
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { VisionFootprintTable } from "./vision-footprint-table.js";
-import { addReasonCount, reasonKeysForTile, removeReasonCount, type VisibilityReasonCounts } from "./visibility-reason-counts.js";
+import { VisibilityReasonCounts } from "./visibility-reason-counts.js";
 import { parseVisibilityTileKey as parseTileKey } from "./visibility-tile-key.js";
 
 const EMPTY_REASONS: ReadonlySet<string> = new Set();
@@ -22,7 +22,7 @@ export class VisibilityCoverageCache {
   // way `coverage` is: a cell can be reached by the same reason from two
   // different sources (e.g. two owned tiles both dilating into it), and the
   // tag must survive until every such contribution is withdrawn.
-  private readonly reasons: VisibilityReasonCounts = new Map();
+  private readonly reasons = new VisibilityReasonCounts();
   private readonly worldWidth: number;
   private readonly worldHeight: number;
   private readonly footprintTable: VisionFootprintTable | undefined;
@@ -75,7 +75,7 @@ export class VisibilityCoverageCache {
    * "tile owned by someone else, currently visible" case.
    */
   reasonsForTile(viewerId: string, tileKey: string): ReadonlySet<string> {
-    return reasonKeysForTile(this.reasons, viewerId, tileKey) ?? EMPTY_REASONS;
+    return this.reasons.reasonsForTile(viewerId, tileKey) ?? EMPTY_REASONS;
   }
 
   /**
@@ -147,7 +147,7 @@ export class VisibilityCoverageCache {
   private incrementCell(map: Map<string, number>, viewerId: string, key: string, onEnter: ((viewerId: string, tileKey: string) => void) | undefined, reason: string | undefined): void {
     const next = (map.get(key) ?? 0) + 1;
     map.set(key, next);
-    if (reason) addReasonCount(this.reasons, viewerId, key, reason);
+    if (reason) this.reasons.add(viewerId, key, reason);
     if (next !== 1) return;
     this.onFirstSeen?.(viewerId, key);
     this.onCoverageEdge?.(viewerId, key, true);
@@ -155,7 +155,7 @@ export class VisibilityCoverageCache {
   }
 
   private decrementCell(map: Map<string, number>, viewerId: string, key: string, onLeave: ((viewerId: string, tileKey: string) => void) | undefined, reason: string | undefined): void {
-    if (reason) removeReasonCount(this.reasons, viewerId, key, reason);
+    if (reason) this.reasons.remove(viewerId, key, reason);
     const next = (map.get(key) ?? 0) - 1;
     if (next <= 0) {
       map.delete(key);

@@ -1,30 +1,39 @@
 import { describe, expect, it } from "vitest";
-import { SELF_VISIBILITY_REASON, addReasonCount, reasonCountStats, reasonKeysForTile, removeReasonCount, type VisibilityReasonCounts } from "./visibility-reason-counts.js";
+import { SELF_VISIBILITY_REASON, VisibilityReasonCounts } from "./visibility-reason-counts.js";
 
-describe("visibility reason counts", () => {
-  it("keeps a tile covered only by the viewer's own territory without a per-tile Map", () => {
-    // Regression: every covered tile used to hold its own one-entry Map
-    // (about 185 bytes), the largest growing holder in the 2026-11-28 heap
-    // snapshots. Own-territory coverage is nearly all of it.
-    const reasons: VisibilityReasonCounts = new Map();
+describe("VisibilityReasonCounts", () => {
+  it("stores no per-tile Map, whatever mix of tags a tile carries", () => {
+    // Regression: every covered tile used to hold its own Map (about 190
+    // bytes with its usual two or three tags), the largest land-driven holder
+    // in the 2026-11-28 heap snapshots. The tags seen there, in their usual
+    // combinations, must store as a refcount or a flat pair array.
+    const counts = new VisibilityReasonCounts();
+    const combos = [
+      [SELF_VISIBILITY_REASON],
+      [SELF_VISIBILITY_REASON, "reach:self", "relay-beacon"],
+      ["radius:ally:p2", "reach:ally:p2", "relay-beacon"],
+      ["relay-beacon"]
+    ];
     for (let i = 0; i < 1_000; i += 1) {
-      addReasonCount(reasons, "p1", `${i},0`, SELF_VISIBILITY_REASON);
-      addReasonCount(reasons, "p1", `${i},0`, SELF_VISIBILITY_REASON);
+      for (const reason of combos[i % combos.length]!) counts.add("p1", `${i},0`, reason);
     }
-    expect(reasonCountStats(reasons)).toEqual({ tiles: 1_000, mapTiles: 0 });
-    expect(reasonKeysForTile(reasons, "p1", "5,0")).toEqual(new Set([SELF_VISIBILITY_REASON]));
+    const stats = counts.stats();
+    expect(stats.tiles).toBe(1_000);
+    expect(stats.arrayTiles).toBe(750);
+    expect(stats.reasonIds).toBe(5);
+    expect(counts.reasonsForTile("p1", "1,0")).toEqual(new Set([SELF_VISIBILITY_REASON, "reach:self", "relay-beacon"]));
+    expect(counts.reasonsForTile("p1", "0,0")).toEqual(new Set([SELF_VISIBILITY_REASON]));
   });
 
-  it("promotes a tile with a second reason and demotes it once only its own territory is left", () => {
-    const reasons: VisibilityReasonCounts = new Map();
-    addReasonCount(reasons, "p1", "1,1", SELF_VISIBILITY_REASON);
-    addReasonCount(reasons, "p1", "1,1", "radius:ally:p2");
-    expect(reasonKeysForTile(reasons, "p1", "1,1")).toEqual(new Set([SELF_VISIBILITY_REASON, "radius:ally:p2"]));
-    expect(reasonCountStats(reasons).mapTiles).toBe(1);
-    removeReasonCount(reasons, "p1", "1,1", "radius:ally:p2");
-    expect(reasonCountStats(reasons)).toEqual({ tiles: 1, mapTiles: 0 });
-    removeReasonCount(reasons, "p1", "1,1", SELF_VISIBILITY_REASON);
-    expect(reasons.size).toBe(0);
+  it("demotes a tile back to a bare refcount once only its own territory is left, and forgets empty tiles", () => {
+    const counts = new VisibilityReasonCounts();
+    counts.add("p1", "1,1", SELF_VISIBILITY_REASON);
+    counts.add("p1", "1,1", "radius:ally:p2");
+    expect(counts.stats().arrayTiles).toBe(1);
+    counts.remove("p1", "1,1", "radius:ally:p2");
+    expect(counts.stats()).toMatchObject({ tiles: 1, arrayTiles: 0 });
+    counts.remove("p1", "1,1", SELF_VISIBILITY_REASON);
+    expect(counts.stats()).toMatchObject({ viewers: 0, tiles: 0 });
   });
 
   it("matches a plain refcount model under random add/remove sequences", () => {
@@ -33,8 +42,8 @@ describe("visibility reason counts", () => {
       seed = (seed * 1103515245 + 12345) & 0x7fffffff;
       return seed % n;
     };
-    const tags = [SELF_VISIBILITY_REASON, SELF_VISIBILITY_REASON, "radius:ally:p2", "relay-beacon", "temporary-reveal"];
-    const reasons: VisibilityReasonCounts = new Map();
+    const tags = [SELF_VISIBILITY_REASON, SELF_VISIBILITY_REASON, "reach:self", "radius:ally:p2", "relay-beacon", "temporary-reveal"];
+    const counts = new VisibilityReasonCounts();
     const model = new Map<string, number>();
     for (let step = 0; step < 20_000; step += 1) {
       const viewer = `p${rand(3)}`;
@@ -42,16 +51,16 @@ describe("visibility reason counts", () => {
       const tag = tags[rand(tags.length)]!;
       const modelKey = `${viewer}|${tile}|${tag}`;
       const held = model.get(modelKey) ?? 0;
-      if (held > 0 && rand(2) === 0) {
-        removeReasonCount(reasons, viewer, tile, tag);
+      if (rand(2) === 0) {
+        counts.remove(viewer, tile, tag); // removing an absent tag is a no-op, as before
         if (held === 1) model.delete(modelKey);
-        else model.set(modelKey, held - 1);
+        else if (held > 1) model.set(modelKey, held - 1);
       } else {
-        addReasonCount(reasons, viewer, tile, tag);
+        counts.add(viewer, tile, tag);
         model.set(modelKey, held + 1);
       }
       const expected = new Set([...model.keys()].filter((key) => key.startsWith(`${viewer}|${tile}|`)).map((key) => key.split("|")[2]!));
-      expect(reasonKeysForTile(reasons, viewer, tile) ?? new Set()).toEqual(expected);
+      expect(counts.reasonsForTile(viewer, tile) ?? new Set()).toEqual(expected);
     }
   });
 });
