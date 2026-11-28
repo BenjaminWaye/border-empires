@@ -316,8 +316,9 @@ baseline.
     sectors are greyed out in the sector list (§6), which offers funding a new
     sector when none has room, on hosted sectors too. AI Houses still land in
     the last-resort pass.
-  - Not built yet: an eliminated House that is online when a site frees up is
-    not landed until it logs in again, and is not told why it is waiting.
+  - Built 2026-11-28 (chosen by the agent on the owner's delegation): an
+    online House waiting for a landing site is landed within about a minute of
+    one freeing up, and the player is told it is waiting.
 - Current Apple and Google rules on purchases made on the web and used in the
   apps. *Researched 2026-11-25*
   ([`app-store-purchase-rules.md`](app-store-purchase-rules.md); Google

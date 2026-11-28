@@ -3,6 +3,8 @@ import { NOV_21_CHANGELOG } from "./client-changelog-nov-21.js";
 import { NOV_23_CHANGELOG } from "./client-changelog-nov-23.js";
 import { NOV_25_26_CHANGELOG } from "./client-changelog-nov-25-26.js";
 import { NOV_27_28_CHANGELOG } from "./client-changelog-nov-27-28.js";
+import { QUIET_GOOD_NEWS_ENTRY } from "./client-changelog-quiet-good-news.js";
+import { CHRONICLE_OPENS_YOURS_ENTRY } from "./client-changelog-chronicle-opens-yours.js";
 import { CHRONICLE_WORLD_HEADLINES_ENTRY } from "./client-changelog-chronicle-world-headlines.js";
 import { NOV_16_CHANGELOG } from "./client-changelog-nov-16.js";
 import { NOV_17_CHANGELOG } from "./client-changelog-nov-17.js";
@@ -484,6 +486,8 @@ const ALL_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...NOV_21_CHANGELOG,
   ...NOV_23_CHANGELOG,
   ...NOV_25_26_CHANGELOG,
+  { ...QUIET_GOOD_NEWS_ENTRY, createdAt: 1795724321729, },
+  { ...CHRONICLE_OPENS_YOURS_ENTRY, createdAt: 1795724340365, },
   ...NOV_27_28_CHANGELOG,
 ];
 
