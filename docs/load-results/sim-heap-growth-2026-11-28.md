@@ -247,6 +247,30 @@ with their costs; none is chosen here:
    drop `frontierOriginExplanations`, a third of it). Cost: engineering time;
    each needs its own check that nothing reads what is dropped.
 
+## 6. Decision, 2026-11-28 (owner)
+
+Option 2 was taken: the heap limit is raised from 900 MB to 1,536 MB in
+`deploy/env/production.env`, `staging.env` and `hosted.env`, as insurance.
+Under the straight-line reading (§5) peaks at day 30 are about 1,380 MB, under
+the new limit. Whole-process memory then: about 1.25–1.32 GB measured on soak
+day 3, plus up to about 700 MB more heap by day 30, plus about 320 MB while a
+full-map reveal is built
+([`full-reveal-2026-11-23.md`](full-reveal-2026-11-23.md)) and 7–40 MB while a
+checkpoint is built: about 2.4 GB at worst on the 4 GB server.
+
+The checkpoint watermarks stay as they are (680 MB heap, 1,500 MB process).
+If heap peaks pass 680 MB, or the process passes 1,500 MB, regular
+checkpoints are put off and run only when forced every 4,000 events, which
+lengthens what a crash rolls back. Under the land-bounded reading (peaks about
+600–650 MB) that does not happen; under the straight-line reading it starts
+around day 10–13. Raising them to about 1,300 MB heap and 2,300 MB process
+would remove that; not done.
+
+**A full-map run is still wanted** to confirm that growth stops when the land
+is full. The higher limit buys time against the straight-line reading; it does
+not show which reading is right, and it lets a real leak run longer before it
+shows.
+
 ## Not measured
 
 - **Real time, and a real AI pace.** The 6× clock slowed the AI per game hour
