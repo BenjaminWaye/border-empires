@@ -25,6 +25,48 @@ export type FullscreenCard = {
 
 type ActiveCard = { key: FullscreenCardKey; token: object; mounted: MountedFullscreenCard | undefined };
 
+/**
+ * While this returns true no new card shows (client-notice-gate.ts: a sheet or modal is open, or the player is
+ * mid-tap). First-15 playtest (2026-11-28): Town Captured slid over the open House Charges panel and over the
+ * next Explore tap, and took those taps. Installed at start-up; tests set their own.
+ */
+let held: () => boolean = () => false;
+/** How often a held queue looks again. */
+export const FULLSCREEN_CARD_HOLD_RETRY_MS = 250;
+/** Taps on a card in its first moments were meant for what was under it, and are dropped. */
+export const FULLSCREEN_CARD_ARRIVAL_GUARD_MS = 400;
+let retry: ReturnType<typeof setTimeout> | undefined;
+
+export const setFullscreenCardHold = (predicate: () => boolean): void => {
+  held = predicate;
+};
+
+const scheduleRetry = (): void => {
+  if (retry !== undefined) return;
+  retry = setTimeout(() => {
+    retry = undefined;
+    flush();
+  }, FULLSCREEN_CARD_HOLD_RETRY_MS);
+};
+
+/**
+ * Whether a click on a card that appeared at `shownAt` is dropped: a real tap (trusted input) in the card's first
+ * FULLSCREEN_CARD_ARRIVAL_GUARD_MS. Scripted clicks (keyboard activation aside, tests) are never dropped.
+ */
+export const dropsArrivalTap = (trusted: boolean, nowMs: number, shownAt: number): boolean =>
+  trusted && nowMs - shownAt < FULLSCREEN_CARD_ARRIVAL_GUARD_MS;
+
+/** A card that just appeared swallows real taps for a moment (capture phase, before its buttons see them). */
+const guardArrivalTaps = (mounted: MountedFullscreenCard): void => {
+  if (typeof Element === "undefined" || !(mounted instanceof Element)) return;
+  const shownAt = Date.now();
+  mounted.addEventListener("click", (event) => {
+    if (!dropsArrivalTap(event.isTrusted, Date.now(), shownAt)) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }, { capture: true });
+};
+
 // At most one waiting card per key (a newer one of the same kind replaces it), so the queue never outgrows the keys.
 const queue: FullscreenCard[] = [];
 let active: ActiveCard | undefined;
@@ -40,6 +82,10 @@ const dropStaleActive = (): void => {
 const flush = (): void => {
   dropStaleActive();
   while (!active) {
+    if (queue.length > 0 && held()) {
+      scheduleRetry();
+      return;
+    }
     const next = queue.shift();
     if (!next) return;
     const card: ActiveCard = { key: next.key, token: {}, mounted: undefined };
@@ -50,7 +96,10 @@ const flush = (): void => {
     } finally {
       // A card that showed nothing (or threw) gives the slot straight back.
       if (active === card) {
-        if (mounted) card.mounted = mounted;
+        if (mounted) {
+          card.mounted = mounted;
+          guardArrivalTaps(mounted);
+        }
         else active = undefined;
       }
     }
@@ -78,7 +127,7 @@ export const enqueueFullscreenCard = (card: FullscreenCard): void => {
  */
 export const tryClaimFullscreenCard = (key: FullscreenCardKey, mounted: MountedFullscreenCard): (() => void) | undefined => {
   flush();
-  if (active || queue.length > 0) return undefined;
+  if (active || queue.length > 0 || held()) return undefined;
   const token = {};
   active = { key, token, mounted };
   return () => release(token);
@@ -101,4 +150,7 @@ export const queuedFullscreenCardCount = (): number => queue.length;
 export const resetFullscreenCardQueueForTests = (): void => {
   queue.length = 0;
   active = undefined;
+  held = () => false;
+  if (retry !== undefined) clearTimeout(retry);
+  retry = undefined;
 };

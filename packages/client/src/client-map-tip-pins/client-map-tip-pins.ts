@@ -35,11 +35,13 @@ export const pinAnchor = (projection: Projection, x: number, y: number, three: b
 /** Horizontal gap between pins that share a tile (a town that is also first contact, a dock and its first-dock tip). */
 export const PIN_FAN_PX = 30;
 
+const NO_TILES: ReadonlySet<string> = new Set();
+
 const isPhotoModeOn = (doc: Document): boolean => doc.body.classList.contains(PHOTO_MODE_BODY_CLASS);
 
 /** The pin layer over the map canvas; `render` runs every frame with the frame's projection. */
 export function createMapTipPins(canvas: HTMLCanvasElement, pinsFor: () => readonly MapTipPin[] = mapTipPins): {
-  render: (projection: Projection, mapDrawn?: boolean) => void;
+  render: (projection: Projection, mapDrawn?: boolean, coveredTiles?: ReadonlySet<string>) => void;
   dispose: () => void;
 } {
   const doc = canvas.ownerDocument;
@@ -48,14 +50,16 @@ export function createMapTipPins(canvas: HTMLCanvasElement, pinsFor: () => reado
   canvas.parentElement?.append(layer);
   const buttons = new Map<string, HTMLButtonElement>();
   return {
-    render(projection, mapDrawn = true) {
+    render(projection, mapDrawn = true, coveredTiles: ReadonlySet<string> = NO_TILES) {
       const bounds = canvas.getBoundingClientRect();
       const scaleX = bounds.width / Math.max(1, canvas.width), scaleY = bounds.height / Math.max(1, canvas.height);
       const three = isTrue3DRendererActive();
       const shown = new Set<string>();
       // Photo mode captures the bare map, and a hidden pin must not catch a tap meant for the map. With no map
       // drawn (the season lobby) there is no real projection to place them by.
-      const pins = !mapDrawn || isPhotoModeOn(doc) ? [] : pinsFor();
+      // A tile with a waystation's Activate card loses its pins until the card goes: both stand above the tile,
+      // and the pin (drawn over the card) hid Activate and took its taps (first-15 playtest, 2026-11-28).
+      const pins = !mapDrawn || isPhotoModeOn(doc) ? [] : pinsFor().filter((pin) => !coveredTiles.has(`${pin.x},${pin.y}`));
       const perTile = new Map<string, number>();
       for (const pin of pins) perTile.set(`${pin.x},${pin.y}`, (perTile.get(`${pin.x},${pin.y}`) ?? 0) + 1);
       const fanned = new Map<string, number>();
