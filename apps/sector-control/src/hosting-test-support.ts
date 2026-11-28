@@ -65,7 +65,8 @@ export const createHostingHarness = async (configOverrides: Partial<HostingConfi
     store, payment, alert, config, now,
     signTicket: createSectorTicketSigner({ privateKeyPem: ticketPrivateKeyPem, now }),
     newId: (length) => `id${String((nextId += 1)).padStart(length - 2, "0")}`,
-    rememberAddress: mailer.rememberAddress
+    rememberAddress: mailer.rememberAddress,
+    results
   });
   const reconciler = createHostingReconciler({ store, payment, servers, alert, config, now, mailer, results, onSectorOpened: (sector) => { opened.push(sector); mailer.sectorReady(sector); },
     // A failed mail pass would otherwise go unnoticed by a test.

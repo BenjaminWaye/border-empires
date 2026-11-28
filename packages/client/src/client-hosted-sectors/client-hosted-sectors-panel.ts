@@ -20,6 +20,7 @@ import { withdrawalConfirmHtml, withdrawalReceivedNotice, withdrawButtonHtml } f
 import { CHECKOUT_CONSENT, hostSectorFormHtml, isAllowedCheckoutUrl, readHostSectorForm } from "./client-hosted-sector-order.js";
 import type { HostedSectorSummary, HostingApi } from "./client-hosted-sectors-api.js";
 import { registerHostedSectorListSource } from "../client-sector-list/client-sector-list-loader.js";
+import { hostedSectorResultsHtml } from "./client-hosted-sector-results.js";
 
 export type HostedSectorsPanelDeps = {
   api: Pick<HostingApi, "listSectors" | "issueTicket" | "acceptInvite" | "createOrder" | "createInvite" | "openFundingBar" | "contribute" | "quoteWithdrawal" | "withdraw">;
@@ -74,6 +75,7 @@ export const hostedSectorRowHtml = (sector: HostedSectorSummary, activeSectorId:
       <div>
         <strong>${escapeHtml(title)}</strong>
         <span class="hosted-sector-meta">${escapeHtml(status)} · ${sector.members} of ${sector.humanPlaces} places taken${sector.role === "host" ? " · You host this sector" : ""}</span>
+        ${hostedSectorResultsHtml(sector.results)}
         ${fundingRowHtml(sector, Date.now())}
       </div>
       <div class="hosted-sector-actions">${hostActions}${action}</div>

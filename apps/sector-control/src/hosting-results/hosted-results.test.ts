@@ -6,7 +6,8 @@ import type { DatabaseSync as Database } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 
 import { fakeContestSummary } from "../providers/fake-providers.js";
-import { createHostingHarness, DAY, MINUTE } from "../hosting-test-support.js";
+import { account, createHostingHarness, DAY, MINUTE } from "../hosting-test-support.js";
+import { sectorResultsView } from "../hosting-service/hosting-service.js";
 import { RESULTS_EXPORT_GRACE_MS } from "../hosting-service/hosting-reconciler.js";
 import { parseContestResults, SqliteHostedResultsStore } from "./hosted-results.js";
 
@@ -59,6 +60,28 @@ describe("reading a sector's results", () => {
     expect(store.get("s-1")).toMatchObject({ sectorId: "s-1", savedAt: 20, crowned: true });
     expect(store.get("s-1")?.standings).toHaveLength(2);
     expect(store.get("s-2")).toBeUndefined();
+  });
+});
+
+describe("results in My sectors", () => {
+  it("shows the outcome and this account's place once results are saved", async () => {
+    const h = await createHostingHarness();
+    const sectorId = await h.openSector();
+    const hostname = `${sectorId}.sectors.invalid`;
+    const summary = fakeContestSummary(true);
+    h.servers.summaries.set(hostname, { ...summary, overall: [(summary.overall as object[])[0], { ...(summary.overall as object[])[1], id: "host" }] });
+    expect(h.service.listSectors(account("host"))[0]?.results).toBeUndefined();
+    h.servers.ended.add(hostname);
+    await h.reconciler.runOnce();
+    expect(h.service.listSectors(account("host"))[0]?.results).toEqual({ finished: true, houses: 2, rank: 2, winner: "First House" });
+  });
+
+  it("says when a sector closed before a crowning, with no winner", () => {
+    const store = new SqliteHostedResultsStore(new DatabaseSync(":memory:"));
+    store.applySchema();
+    store.save("s-1", parseContestResults(fakeContestSummary(false)), 10);
+    expect(sectorResultsView(store.get("s-1")!, "p1")).toEqual({ finished: false, houses: 2, rank: 1 });
+    expect(sectorResultsView(store.get("s-1")!, "someone-else")).toEqual({ finished: false, houses: 2 });
   });
 });
 

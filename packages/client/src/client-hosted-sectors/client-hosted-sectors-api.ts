@@ -4,6 +4,7 @@
 import type { HostedSectorConsent, HostedSectorMapSize, HostedSectorMapStyle } from "@border-empires/shared";
 
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
+import { parseHostedSectorResults, type HostedSectorResults } from "./client-hosted-sector-results.js";
 
 export type HostedSectorState = "awaiting_payment" | "funding" | "creating" | "open" | "ended" | "deleted" | "cancelled" | "refunded";
 
@@ -33,6 +34,8 @@ export type HostedSectorSummary = {
   funding?: HostedSectorFunding;
   /** True while this account can withdraw from what it paid for here. */
   canWithdraw?: boolean;
+  /** Once the contest's results are saved. */
+  results?: HostedSectorResults;
 };
 
 export type HostedWithdrawalQuote = { purchaseKey: string; paidCents: number; daysOpen: number; deductionCents: number; refundCents: number; deadline: number };
@@ -85,7 +88,8 @@ const parseSector = (value: unknown): HostedSectorSummary | undefined => {
     delayed: record.delayed === true,
     ...(typeof record.checkoutUrl === "string" ? { checkoutUrl: record.checkoutUrl } : {}),
     ...(parseFunding(record.funding) ? { funding: parseFunding(record.funding) as HostedSectorFunding } : {}),
-    ...(record.canWithdraw === true ? { canWithdraw: true } : {})
+    ...(record.canWithdraw === true ? { canWithdraw: true } : {}),
+    ...(parseHostedSectorResults(record.results) ? { results: parseHostedSectorResults(record.results) as HostedSectorResults } : {})
   };
 };
 

@@ -11,6 +11,7 @@ import { consentRecord } from "./hosting-consent.js";
 import { PURCHASES_PAUSED_MESSAGE } from "./hosting-disputes.js";
 import { createWithdrawalService } from "./hosting-withdrawal.js";
 import { createFundingService, type ContributionEvent, type FundingErrorCode, type FundingView } from "./hosting-funding.js";
+import type { HostedResultsRecord, HostedResultsStore } from "../hosting-results/hosted-results.js";
 
 /** The signed-in caller, as verified from their Firebase ID token. */
 /** `email` is the token's address; it is kept only when verified, for the emails about a purchase (hosting-email). */
@@ -41,6 +42,24 @@ export type SectorView = {
   funding?: FundingView;
   /** True while this account can withdraw from what it paid for here: shows the "Withdraw from contract" button. */
   canWithdraw: boolean;
+  /** Once the contest's results are saved: the outcome, and this account's place if it played. */
+  results?: SectorResultsView;
+};
+
+/** "You placed #2 of 24", and who was crowned. `finished` is false for a sector closed before a crowning. */
+export type SectorResultsView = { finished: boolean; houses: number; rank?: number; winner?: string };
+
+/** What the view needs from a saved copy (hosted-results.ts). */
+export const sectorResultsView = (record: HostedResultsRecord, accountUid: string): SectorResultsView => {
+  const dropped = typeof record.details.droppedStandings === "number" ? record.details.droppedStandings : 0;
+  const own = record.standings.find((standing) => standing.playerId === accountUid);
+  const winner = record.crowned ? record.standings.find((standing) => standing.rank === 1)?.name : undefined;
+  return {
+    finished: record.crowned,
+    houses: Math.max(record.standings.length + dropped, ...record.standings.map((standing) => standing.rank)),
+    ...(own ? { rank: own.rank } : {}),
+    ...(winner ? { winner } : {})
+  };
 };
 
 /**
@@ -66,6 +85,8 @@ export type HostingServiceDeps = {
   newId: (length: number) => string;
   /** Keeps the address of an account that buys or joins, for the emails about that sector (hosting-mailer.ts). */
   rememberAddress?: (account: HostingAccount) => void;
+  /** Saved results, shown on the sector once there are any. */
+  results?: Pick<HostedResultsStore, "get">;
 };
 
 /** A sector people can still be invited to and join. */
@@ -80,6 +101,7 @@ export const createHostingService = (deps: HostingServiceDeps) => {
 
   const view = (sector: SectorRecord, role: "host" | "member", accountUid: string): SectorView => {
     const fundingView = funding.view(sector, accountUid);
+    const saved = deps.results?.get(sector.sectorId);
     return {
       sectorId: sector.sectorId,
       state: sector.state,
@@ -93,7 +115,8 @@ export const createHostingService = (deps: HostingServiceDeps) => {
       ...(role === "host" && sector.state === "awaiting_payment" && sector.checkoutUrl ? { checkoutUrl: sector.checkoutUrl } : {}),
       delayed: sector.state === "creating" && sector.createAttempts > 0,
       ...(fundingView ? { funding: fundingView } : {}),
-      canWithdraw: withdrawal.canWithdraw(accountUid, sector.sectorId)
+      canWithdraw: withdrawal.canWithdraw(accountUid, sector.sectorId),
+      ...(saved ? { results: sectorResultsView(saved, accountUid) } : {})
     };
   };
 
