@@ -1,6 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+// @vitest-environment happy-dom
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Tile } from "../client-types.js";
-import { toggleWeakDefensibility } from "./client-hud-weak-defensibility-toggle.js";
+import { bindWeakDefensibilityToggle, toggleWeakDefensibility } from "./client-hud-weak-defensibility-toggle.js";
+import type { ClientState } from "../client-state/client-state.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 
@@ -41,5 +43,36 @@ describe("toggleWeakDefensibility", () => {
     toggleWeakDefensibility(state, deps);
     expect(state.showWeakDefensibility).toBe(false);
     expect([state.camX, state.camY]).toEqual([0, 0]);
+  });
+});
+
+// First-15 playtest 2026-11-28 (pt-worldbuilder): on a phone, "Show (589, 30)" moved the camera behind the
+// Empire Integrity sheet, which covers the whole map, so nothing seemed to happen.
+describe("Integrity Show buttons", () => {
+  afterEach(() => {
+    document.body.className = "";
+    document.body.innerHTML = "";
+  });
+
+  const press = (compact: boolean) => {
+    const { state, deps } = setup();
+    document.body.classList.toggle("hud-v2-compact", compact);
+    document.body.innerHTML = `<button data-weak-def-focus="589,30">Show (589, 30)</button>`;
+    const closePanel = vi.fn();
+    bindWeakDefensibilityToggle(document.body, state as unknown as ClientState, { ...deps, closePanel });
+    document.querySelector<HTMLButtonElement>("[data-weak-def-focus]")!.click();
+    return { state, closePanel };
+  };
+
+  it("closes the panel on a phone so the camera move shows", () => {
+    const { state, closePanel } = press(true);
+    expect([state.camX, state.camY]).toEqual([589, 30]);
+    expect(closePanel).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the desktop side panel open beside the map", () => {
+    const { state, closePanel } = press(false);
+    expect([state.camX, state.camY]).toEqual([589, 30]);
+    expect(closePanel).not.toHaveBeenCalled();
   });
 });

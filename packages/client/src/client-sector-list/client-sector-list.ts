@@ -11,7 +11,8 @@
 // Hosted sectors are web-only; the apps list the public sector alone and
 // never offer funding (docs/app-store-purchase-rules.md).
 
-export type SectorBoard = { status: string; houses: number; maxHouses: number; full: boolean; noLandingSite: boolean };
+/** `houses` and `maxHouses` count player Houses (the join cap); `aiHouses` the AI Houses beside them, when the server reports it. */
+export type SectorBoard = { status: string; houses: number; maxHouses: number; full: boolean; noLandingSite: boolean; aiHouses?: number };
 
 export type HostedSectorListItem = { sectorId: string; state: string; title: string };
 
@@ -34,9 +35,9 @@ const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, (char) =
 
 export const parseSectorBoard = (body: unknown): SectorBoard | undefined => {
   if (!body || typeof body !== "object") return undefined;
-  const { ok, status, houses, maxHouses, full, noLandingSite } = body as Record<string, unknown>;
+  const { ok, status, houses, maxHouses, full, noLandingSite, aiHouses } = body as Record<string, unknown>;
   if (ok !== true || typeof status !== "string" || typeof houses !== "number" || typeof maxHouses !== "number" || typeof full !== "boolean") return undefined;
-  return { status, houses, maxHouses, full, noLandingSite: noLandingSite === true };
+  return { status, houses, maxHouses, full, noLandingSite: noLandingSite === true, ...(typeof aiHouses === "number" ? { aiHouses } : {}) };
 };
 
 /** The http(s) origin of a game server's WebSocket URL. */
@@ -53,8 +54,13 @@ export const httpOriginOfWsUrl = (wsUrl: string): string | undefined => {
 export const boardFullReason = (board: SectorBoard): string =>
   !board.full ? "" : board.noLandingSite ? "Full: no landing site left" : "Full: every House place is taken";
 
-const housesDetail = (board: SectorBoard): string =>
-  board.maxHouses > 0 ? `${board.houses} of ${board.maxHouses} Houses` : `${board.houses} Houses`;
+// The cap counts player Houses only; Diplomacy lists the AI Houses too. Saying "player" and adding the AI
+// count keeps the two screens from contradicting (first-15 playtest 2026-11-28: "3 of 50 Houses" beside
+// "Not met yet · 23").
+const housesDetail = (board: SectorBoard): string => {
+  const players = board.maxHouses > 0 ? `${board.houses} of ${board.maxHouses} player Houses` : `${board.houses} player Houses`;
+  return board.aiHouses ? `${players} + ${board.aiHouses} AI` : players;
+};
 
 const boardRow = (key: string, title: string, board: SectorBoard, here: boolean, action: SectorListAction, sectorId?: string): SectorListRow => ({
   key,

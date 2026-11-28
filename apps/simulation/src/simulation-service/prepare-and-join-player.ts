@@ -21,7 +21,7 @@ export const parseRallyAnchor = (value: string | undefined): { x: number; y: num
   }
 };
 
-type PrepareOrJoinDeps = {
+export type PrepareOrJoinDeps = {
   runtime: SimulationRuntime;
   log: { info: (payload: Record<string, unknown>, message: string) => void; error: (payload: Record<string, unknown>, message: string) => void };
   simulationMetrics: ReturnType<typeof createSimulationMetrics>;
@@ -79,6 +79,12 @@ const spawnAndAnnounce = (
     deps.deleteCachedSnapshot(playerId);
     deps.log.info({ playerId }, logMessage);
   }
+  announcePreparedPlayer(deps, playerId);
+  return spawned;
+};
+
+/** What every prepared or freshly landed player gets: the AFC migration grant and the per-connect hellos. */
+export const announcePreparedPlayer = (deps: Pick<PrepareOrJoinDeps, "runtime" | "log" | "deleteCachedSnapshot">, playerId: string): void => {
   // Migration for empires settled before AFCs existed (docs/manifest-afc-settlement-migration-plan.md).
   // A no-op for anyone who already has one -- including a player who was
   // JUST spawned above, whose brand-new AFC already satisfies the guard.
@@ -93,7 +99,6 @@ const spawnAndAnnounce = (
     playerId,
     deps.log
   );
-  return spawned;
 };
 
 // PreparePlayer runs on every authenticated connection, so it must never

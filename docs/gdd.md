@@ -295,6 +295,19 @@ baseline.
     day 10 of a contest. What holds it is not known yet. Tap times from that
     run do not count, because the Mac was heavily loaded by other programs.
     The hosting price is still not settled.
+  - Known 2026-11-28
+    ([`load-results/sim-heap-growth-2026-11-28.md`](load-results/sim-heap-growth-2026-11-28.md)),
+    from heap snapshots of an aged world: the growth above follows owned
+    land, about 5 KB per newly owned tile, which accounts for the whole
+    day-3 rate; nothing found grows with time alone
+    without a cap. One memo that grew without a bound was fixed and the
+    largest per-tile holder halved: on the same world the heap grows half as
+    fast and is 42 MB smaller. If growth stops when the land is full, heap
+    peaks level off near 600–650 MB of the 900 MB limit; if the day-3 rate
+    went on regardless, peaks would reach 900 MB around day 13 (day 10
+    before). A full map has not been run, so which holds is still open. The
+    options (a full-map run, a higher heap limit, a shorter contest, cutting
+    more per-tile state) are in that record for the owner; none is chosen.
   - Decided 2026-11-23, revised 2026-11-25 (owner): raise the checkpoint
     process-memory watermark from 700 MB to 1,500 MB, and the simulation-heap
     watermark from 480 MB to 680 MB, so that checkpoints stop being put off at
@@ -323,8 +336,9 @@ baseline.
     sectors are greyed out in the sector list (§6), which offers funding a new
     sector when none has room, on hosted sectors too. AI Houses still land in
     the last-resort pass.
-  - Not built yet: an eliminated House that is online when a site frees up is
-    not landed until it logs in again, and is not told why it is waiting.
+  - Built 2026-11-28 (chosen by the agent on the owner's delegation): an
+    online House waiting for a landing site is landed within about a minute of
+    one freeing up, and the player is told it is waiting.
 - Current Apple and Google rules on purchases made on the web and used in the
   apps. *Researched 2026-11-25*
   ([`app-store-purchase-rules.md`](app-store-purchase-rules.md); Google

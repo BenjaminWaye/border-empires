@@ -4,6 +4,7 @@ import { renderSeasonLobbyPanelHtml, bindSeasonLobbyPanel } from "./client-seaso
 import { joinClosedHtml, lateJoinFacts, lateJoinWarningHtml, waitButtonHtml } from "./client-join-season-late-join/client-join-season-late-join.js";
 import { sectorListHtml } from "./client-sector-list/client-sector-list.js";
 import { syncJoinSeasonReopenButton } from "./client-join-season-reopen/client-join-season-reopen.js";
+import { syncLandingWaitNotice } from "./client-landing-wait/client-landing-wait.js";
 import { canFundSectors, refreshSectorListIfNeeded } from "./client-sector-list/client-sector-list-loader.js";
 import { joinNowHtml } from "./client-join-now-html/client-join-now-html.js";
 import { joinWaitingHtml, waitingEmailHtml, waitingEmailStatus } from "./client-join-season-waiting/client-join-season-waiting.js";
@@ -36,6 +37,9 @@ type JoinSeasonOverlayDeps = {
     | "joinSeasonClosedMessage"
     | "sectorListRows"
     | "sectorListLoadedFor"
+    | "me"
+    | "authSessionReady"
+    | "hasOwnedTileInCache"
   >;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
@@ -249,6 +253,8 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   // instead of a "Let's go!" prompt that could only ever fail.
   const visible = state.needsSeasonJoin && state.joinSeasonOverlayOpen && !state.profileSetupRequired && !state.seasonWinner;
   overlayEl.style.display = visible ? "grid" : "none";
+  // A House in the contest with no land is waiting for a landing site (client-landing-wait.ts).
+  syncLandingWaitNotice({ me: state.me ?? "", authSessionReady: state.authSessionReady === true, needsSeasonJoin: state.needsSeasonJoin, seasonPending: state.seasonPending, hasOwnedTileInCache: state.hasOwnedTileInCache === true, seasonWinner: state.seasonWinner });
   syncJoinSeasonReopenButton({ ...state, profileSetupRequired: state.profileSetupRequired === true }, () => {
     state.joinSeasonWaiting = false; // the reopen button reads "Join this Sector Contest": back to the join card
     state.joinSeasonOverlayOpen = true;

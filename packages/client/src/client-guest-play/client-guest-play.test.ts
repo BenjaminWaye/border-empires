@@ -23,7 +23,8 @@ import {
 } from "./client-guest-play.js";
 
 const auth = {} as never;
-const analytics = {} as never;
+const analyticsInstance = {} as never;
+const analytics = () => analyticsInstance;
 
 const makeState = () => ({ authBusy: false, authBusyStartedAt: 0, authBusyTitle: "", authBusyDetail: "", authConfigured: true });
 

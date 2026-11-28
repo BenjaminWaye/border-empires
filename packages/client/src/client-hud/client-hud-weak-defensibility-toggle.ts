@@ -15,6 +15,18 @@ export type WeakDefensibilityToggleDeps = {
   readonly pushFeed: (message: string, type: FeedType, severity?: FeedSeverity) => void;
   readonly requestViewRefresh: () => void;
   readonly rerender: () => void;
+  /** Closes the Empire Integrity panel. */
+  readonly closePanel?: () => void;
+};
+
+/**
+ * On a phone the panel is a sheet over the whole map, so a camera move behind
+ * it can't be seen: close it first. First-15 playtest 2026-11-28: "Show (589,
+ * 30)" didn't move the map; closing the panel revealed the hole. A desktop side
+ * panel leaves the map in view and stays open.
+ */
+const revealMapOnPhone = (deps: WeakDefensibilityToggleDeps): void => {
+  if (typeof document !== "undefined" && document.body.classList.contains("hud-v2-compact")) deps.closePanel?.();
 };
 
 type WeakToggleState = Pick<ClientState, "tiles" | "me" | "showWeakDefensibility" | "camX" | "camY" | "camSubX" | "camSubY" | "selected">;
@@ -47,6 +59,7 @@ export const toggleWeakDefensibility = (state: WeakToggleState, deps: WeakDefens
       deps.pushFeed("No weak tiles: none of your land has more than 1 open side.", "info", "info");
     } else {
       focusCameraOnTile(state, first.x, first.y, deps);
+      revealMapOnPhone(deps);
       deps.pushFeed(`Showing ${entries.length} weak tile${entries.length === 1 ? "" : "s"}. Weakest at (${first.x}, ${first.y}): ${first.reason}.`, "info", "info");
     }
   }
@@ -64,6 +77,8 @@ export const bindWeakDefensibilityToggle = (root: ParentNode, state: ClientState
       const [x, y] = (btn.dataset.weakDefFocus ?? "").split(",").map(Number);
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
       focusCameraOnTile(state, x as number, y as number, deps);
+      revealMapOnPhone(deps);
+      deps.rerender();
     };
   });
   root.querySelectorAll<HTMLButtonElement>("[data-integrity-garrison-many]").forEach((btn) => {

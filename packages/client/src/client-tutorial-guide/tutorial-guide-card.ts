@@ -92,8 +92,19 @@ export const guideCardHtml = (view: StepView, expanded: boolean): string => {
       </div>
       <div class="tg-actions">${actions}<button type="button" class="tg-btn tg-skip-guide" data-guide-action="hide">Skip guide</button></div>
     </section>
-    <button type="button" class="tg-launcher" data-guide-action="toggle" ${expanded ? "hidden" : ""} aria-label="Open guide (${remaining} steps left)">
-      <span aria-hidden="true">?</span><span class="tg-badge">${remaining}</span>
+    ${launcherHtml(view, expanded, remaining)}`;
+};
+
+/**
+ * The folded card's "?" button. Its badge counts steps the player can do now: when every step left is
+ * waiting (after Finish, on a first contact), it shows none. First-15 playtest 2026-11-28: after Finish
+ * the launcher still read "4 steps left", as if Finish had not taken.
+ */
+const launcherHtml = (view: StepView, expanded: boolean, remaining: number): string => {
+  const label = view.waiting ? "Open guide (waiting for what comes next)" : `Open guide (${remaining} steps left)`;
+  const badge = view.waiting ? "" : `<span class="tg-badge">${remaining}</span>`;
+  return `<button type="button" class="tg-launcher" data-guide-action="toggle" ${expanded ? "hidden" : ""} aria-label="${label}">
+      <span aria-hidden="true">?</span>${badge}
     </button>`;
 };
 
