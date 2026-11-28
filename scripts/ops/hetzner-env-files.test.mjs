@@ -52,3 +52,32 @@ for (const file of envFiles) {
     assert.equal(env.SIMULATION_METRICS_HOST, "0.0.0.0");
   });
 }
+
+// The heap limit and the two checkpoint watermarks are one decision
+// (docs/load-results/sim-heap-growth-2026-11-28.md §6): a heap watermark at or
+// above the limit can never fire, so the "don't start a checkpoint when memory
+// is short" guard would silently be off. Keep them in step across all files.
+const memorySettings = (path) => {
+  const env = Object.fromEntries(parseEnvFile(readFileSync(resolve(root, path), "utf8")));
+  const heapLimitMb = Number(/--max-old-space-size=(\d+)/.exec(env.NODE_OPTIONS ?? "")?.[1]);
+  return {
+    heapLimitMb,
+    heapWatermarkMb: Number(env.SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB),
+    rssWatermarkMb: Number(env.SIMULATION_CHECKPOINT_MAX_RSS_MB)
+  };
+};
+
+test("heap limit and checkpoint watermarks agree across env files", () => {
+  const [first, ...rest] = envFiles.map((file) => memorySettings(file.path));
+  for (const other of rest) assert.deepEqual(other, first);
+});
+
+for (const file of envFiles) {
+  test(`${file.path} keeps the checkpoint heap watermark below the heap limit`, () => {
+    const { heapLimitMb, heapWatermarkMb, rssWatermarkMb } = memorySettings(file.path);
+    assert.ok(Number.isFinite(heapLimitMb) && heapLimitMb > 0, "NODE_OPTIONS must set --max-old-space-size");
+    // Room for a checkpoint build between the watermark and the limit.
+    assert.ok(heapWatermarkMb > 0 && heapWatermarkMb <= heapLimitMb - 128, `heap watermark ${heapWatermarkMb} too close to limit ${heapLimitMb}`);
+    assert.ok(rssWatermarkMb > heapLimitMb, `process watermark ${rssWatermarkMb} must exceed the simulation heap limit ${heapLimitMb}`);
+  });
+}
