@@ -74,4 +74,29 @@ describe("SimulationRuntime tickPopulationGrowth — isFed self-heal", () => {
     expect(isFedOf(tileA!)).toBe(false);
     expect(isFedOf(tileB!)).toBe(true);
   });
+
+  // Regression (first-15 playtest 2026-11-28): a player whose ONLY town went short of FOOD kept seeing it "Fed"
+  // at +16/day on the town card, while Economy said "Short 2" and the coin total left it out. The tick skipped
+  // players with no fed town at all before reaching the self-heal, so their stale isFed:true never cleared.
+  it("self-heals isFed on a player's only town when no town is fed", () => {
+    const onlyTown = { ...makeTownTile(10, 10, "p1", true), town: { ...makeTownTile(10, 10, "p1", true).town, goldPerMinute: 16 / 1440, populationGrowthPerMinute: 6.5 } };
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["p1", makePlayer("p1")]]),
+      initialState: { tiles: [onlyTown], activeLocks: [] }
+    });
+    const deltas: Array<{ x: number; y: number; townJson?: string }> = [];
+    runtime.onEvent((event) => {
+      if (event.eventType === "TILE_DELTA_BATCH") deltas.push(...((event as { tileDeltas?: typeof deltas }).tileDeltas ?? []));
+    });
+
+    runtime.tickPopulationGrowth(1_000);
+    const town = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
+    expect(isFedOf(town!)).toBe(false);
+    const healed = JSON.parse(town!.townJson!) as { goldPerMinute?: number; populationGrowthPerMinute?: number };
+    expect(healed.goldPerMinute ?? 0).toBe(0);
+    expect(healed.populationGrowthPerMinute).toBe(0);
+    // The client hears about it in the same tick, not on some later unrelated change to the tile.
+    expect(deltas.some((d) => d.x === 10 && d.y === 10 && isFedOf(d) === false)).toBe(true);
+  });
 });
