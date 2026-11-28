@@ -13,6 +13,12 @@ export interface RelicHintClientState {
   /** The guide's camp lead (PLAYER_UPDATE guideCampLead): the nearest live Insurgent camp the player has never seen. */
   guideCampLead: GuideCampLead | undefined;
 }
+/** INIT carries no guide leads: forget last session's (another account or season) until a PLAYER_UPDATE sends them. */
+export const clearGuideLeads = (state: Pick<RelicHintClientState, "guideTownLead" | "guideCampLead">): void => {
+  state.guideTownLead = undefined;
+  state.guideCampLead = undefined;
+};
+
 /** The small shared progression fields have one typed wire boundary. */
 export function applyRelicAndProgressionUpdate(state: RelicHintClientState, message: Record<string, unknown>): void {
   if (isChosenTrickleResource(message.chosenTrickleResource)) state.chosenTrickleResource = message.chosenTrickleResource;
