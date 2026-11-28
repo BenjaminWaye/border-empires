@@ -22,8 +22,7 @@ import { installRefineryPickers } from "../client-refineries/refinery-picker-flo
 import type { createClientActionFlow } from "../client-action-flow.js";
 import { createIdentityOwnerColor } from "../client-owner-colors/client-identity-owner-color.js";
 import { installTownCaptureGarrison } from "../client-town-capture/client-town-capture-garrison.js";
-import { installNoticeGatePressTracking, noticesHeld } from "../client-notice-gate/client-notice-gate.js";
-import { setFullscreenCardHold } from "../client-fullscreen-card-queue/client-fullscreen-card-queue.js";
+import { installNoticeGate } from "../client-notice-gate/client-notice-gate.js";
 
 type PostBootstrapDeps = {
   state: ClientState;
@@ -36,8 +35,7 @@ type PostBootstrapDeps = {
 export const installPostBootstrapHooks = ({ state, renderHud, sendGameMessage, setActivePanel, actionFlow, wrapX, wrapY, requestViewRefresh }: PostBootstrapDeps): void => {
   installDiscoveryTipCenterBinding({ state, wrapX, wrapY, requestViewRefresh, renderHud });
   // Town Captured and the other full-screen cards wait while a sheet or modal is open or the player is mid-tap.
-  installNoticeGatePressTracking(window);
-  setFullscreenCardHold(() => noticesHeld(document, Date.now()));
+  installNoticeGate();
   installDebugSeasonEndOverlay(state, renderHud);
   installHudV2({ state, renderHud, requestViewRefresh, wrapX, wrapY, setActivePanel, sendGameMessage, actionFlow, ownerColor: createIdentityOwnerColor(state) }); // the HUD, desktop and phone layouts; crests keep identity colours under the Diplomacy lens
   // Incoming truce/alliance offers, answered in place -- held while the map loads and while the return

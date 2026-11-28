@@ -115,7 +115,8 @@ describe("full-screen cards wait for the notice gate", () => {
 
   it("is installed at start-up", () => {
     const source = readFileSync(new NodeUrl("../client-post-bootstrap-installs/client-post-bootstrap-installs.ts", import.meta.url), "utf8");
-    expect(source).toContain("installNoticeGatePressTracking(window);");
-    expect(source).toContain("setFullscreenCardHold(() => noticesHeld(document, Date.now()));");
+    expect(source).toContain("installNoticeGate();");
+    const gate = readFileSync(new NodeUrl("./client-notice-gate.ts", import.meta.url), "utf8");
+    expect(gate).toContain("setFullscreenCardHold(() => noticesHeld(document, Date.now()));");
   });
 });

@@ -3,6 +3,7 @@
 // panel and took the tap meant for it, landed over the next Explore tap, and the charges note popped up over a
 // confirm sheet. A notice now waits while a sheet or modal is open, and while the player is mid-tap, so it never
 // arrives under a finger.
+import { setFullscreenCardHold } from "../client-fullscreen-card-queue/client-fullscreen-card-queue.js";
 
 /** Modals and sheets a notice must not cover. */
 const MODAL_SELECTORS = [
@@ -49,6 +50,13 @@ export const installNoticeGatePressTracking = (win: Window): void => {
   for (const type of ["pointerup", "pointercancel"] as const) {
     win.addEventListener(type, () => noteNoticeGatePress(false, Date.now()), { capture: true, passive: true });
   }
+};
+
+/** Start-up: full-screen cards (Town Captured, ...) wait for the gate. A no-op without a page (Node tests). */
+export const installNoticeGate = (): void => {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  installNoticeGatePressTracking(window);
+  setFullscreenCardHold(() => noticesHeld(document, Date.now()));
 };
 
 /** Test-only: forgets presses. */
