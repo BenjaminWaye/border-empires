@@ -48,7 +48,10 @@ export type SectorRecord = {
   fundingDeadline?: number;
   paidAt?: number;
   openedAt?: number;
+  /** When the contest ended (a House was crowned). */
   endedAt?: number;
+  /** When the sector was closed before its contest ended (nobody visited): withdrawal is still possible, for the days up to this. */
+  closedAt?: number;
   /** Failed creation attempts since payment, for backoff and alerting. */
   createAttempts: number;
   nextAttemptAt?: number;
@@ -121,6 +124,7 @@ export type SectorPatch = {
   paidAt?: number | null;
   openedAt?: number | null;
   endedAt?: number | null;
+  closedAt?: number | null;
   createAttempts?: number;
   nextAttemptAt?: number | null;
   lastError?: string | null;

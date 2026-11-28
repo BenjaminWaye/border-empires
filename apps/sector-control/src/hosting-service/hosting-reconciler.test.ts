@@ -177,7 +177,8 @@ describe("hosting reconciler: teardown", () => {
     h.servers.lastHumanVisitAt.set(`${played}.sectors.invalid`, h.clock.now);
     h.clock.now += MINUTE;
     await h.reconciler.runOnce();
-    expect(h.store.getSector(idle)).toMatchObject({ state: "deleted", endedAt: h.clock.now });
+    expect(h.store.getSector(idle)).toMatchObject({ state: "deleted", closedAt: h.clock.now });
+    expect(h.store.getSector(idle)?.endedAt).toBeUndefined();
     expect(h.servers.servers.has(`fake-server-${idle}`)).toBe(false);
     expect(h.alerts.at(-1)).toEqual({ kind: "sector_closed_idle", details: { sectorId: idle, idleDays: 7, unwarned: 0 } });
     expect(h.store.getSector(played)?.state).toBe("open");

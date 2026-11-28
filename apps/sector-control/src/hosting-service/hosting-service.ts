@@ -41,6 +41,8 @@ export type SectorView = {
   funding?: FundingView;
   /** True while this account can withdraw from what it paid for here: shows the "Withdraw from contract" button. */
   canWithdraw: boolean;
+  /** True when this account withdrew from the whole sector: shown as "Withdrawn", not "Refunded". */
+  withdrawn?: true;
   /**
    * The sector server's public `/sector/board` (day, Houses, top standings), once it has an
    * address and is open or ended: the Sector Map reads it before entering, with no ticket
@@ -100,6 +102,7 @@ export const createHostingService = (deps: HostingServiceDeps) => {
       delayed: sector.state === "creating" && sector.createAttempts > 0,
       ...(fundingView ? { funding: fundingView } : {}),
       canWithdraw: withdrawal.canWithdraw(accountUid, sector.sectorId),
+      ...(store.getWithdrawal(sector.sectorId)?.accountUid === accountUid ? { withdrawn: true as const } : {}),
       ...((sector.state === "open" || sector.state === "ended") && sector.hostname ? { boardUrl: `https://${sector.hostname}/sector/board` } : {})
     };
   };

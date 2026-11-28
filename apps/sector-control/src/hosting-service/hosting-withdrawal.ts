@@ -5,7 +5,9 @@
 // Whoever paid can withdraw until the end of the 14th day after the day they
 // paid, and until the sector's contest has ended (the right ends then, as the
 // buyer acknowledged at checkout). They get back what they paid less one
-// thirtieth for each started 24-hour period the sector was open.
+// thirtieth for each started 24-hour period the sector was open. A sector
+// closed before its contest ended (nobody visited) was not fully provided:
+// withdrawal stays possible, and only the days up to the closure count.
 //
 // A first request quotes the amounts and names the purchase (the
 // confirmation step); a confirmed one for that same purchase records the
@@ -27,6 +29,10 @@ export const WITHDRAWAL_PERIOD_MS = 15 * DAY_MS;
 /** States in which the sector has been paid for and its contest has not ended. */
 const WITHDRAWABLE_STATES: readonly SectorRecord["state"][] = ["creating", "open"];
 
+/** Paid for, and its contest never ended: still running, or closed for inactivity. */
+const withdrawable = (sector: SectorRecord): boolean =>
+  sector.endedAt === undefined && (WITHDRAWABLE_STATES.includes(sector.state) || (sector.state === "deleted" && sector.closedAt !== undefined));
+
 export type WithdrawalQuote = {
   /** Names the purchase: the confirmed withdrawal must give it back, so it acts on what was quoted. */
   purchaseKey: string;
@@ -39,9 +45,14 @@ export type WithdrawalQuote = {
   deadline: number;
 };
 
-/** The deduction: one thirtieth of what was paid for each started 24-hour period since the sector opened. */
-export const withdrawalQuote = (purchaseKey: string, paidCents: number, paidAt: number, openedAt: number | undefined, now: number): WithdrawalQuote => {
-  const daysOpen = openedAt === undefined || now <= openedAt ? 0 : Math.ceil((now - openedAt) / DAY_MS);
+/**
+ * The deduction: one thirtieth of what was paid for each started 24-hour
+ * period the sector was open, from opening until now or until it was closed,
+ * whichever came first (Terms of Sale section 7).
+ */
+export const withdrawalQuote = (purchaseKey: string, paidCents: number, paidAt: number, openedAt: number | undefined, now: number, closedAt?: number): WithdrawalQuote => {
+  const until = closedAt === undefined ? now : Math.min(now, closedAt);
+  const daysOpen = openedAt === undefined || until <= openedAt ? 0 : Math.ceil((until - openedAt) / DAY_MS);
   const deductionCents = Math.min(paidCents, Math.round((paidCents * daysOpen) / 30));
   return { purchaseKey, paidCents, daysOpen, deductionCents, refundCents: paidCents - deductionCents, deadline: paidAt + WITHDRAWAL_PERIOD_MS };
 };
@@ -68,7 +79,7 @@ export const createWithdrawalService = (deps: { store: HostingStore; payment: Pa
   const unavailable = (purchase: Purchase, now: number): string | undefined => {
     const { sector } = purchase;
     if (sector.paidAt === undefined) return "This sector has not been paid for yet.";
-    if (sector.endedAt !== undefined || !WITHDRAWABLE_STATES.includes(sector.state)) return "The right to withdraw ended when this sector's Sector Contest ended.";
+    if (!withdrawable(sector)) return "The right to withdraw ended when this sector's Sector Contest ended.";
     if (now > sector.paidAt + WITHDRAWAL_PERIOD_MS) return "The 14-day withdrawal period for this purchase has passed.";
     return undefined;
   };
@@ -103,7 +114,7 @@ export const createWithdrawalService = (deps: { store: HostingStore; payment: Pa
       if (store.getWithdrawal(purchase.key)) return fail("WITHDRAWAL_NOT_AVAILABLE", "You have already withdrawn from this purchase.");
       const reason = unavailable(purchase, now);
       if (reason) return fail("WITHDRAWAL_NOT_AVAILABLE", reason);
-      return { ok: true, quote: withdrawalQuote(purchase.key, purchase.paidCents, purchase.sector.paidAt ?? now, purchase.sector.openedAt, now) };
+      return { ok: true, quote: withdrawalQuote(purchase.key, purchase.paidCents, purchase.sector.paidAt ?? now, purchase.sector.openedAt, now, purchase.sector.closedAt) };
     },
 
     /**
@@ -126,7 +137,7 @@ export const createWithdrawalService = (deps: { store: HostingStore; payment: Pa
       const now = deps.now();
       const reason = unavailable(purchase, now);
       if (reason) return fail("WITHDRAWAL_NOT_AVAILABLE", reason);
-      const quote = withdrawalQuote(purchase.key, purchase.paidCents, purchase.sector.paidAt ?? now, purchase.sector.openedAt, now);
+      const quote = withdrawalQuote(purchase.key, purchase.paidCents, purchase.sector.paidAt ?? now, purchase.sector.openedAt, now, purchase.sector.closedAt);
       const withdrawal: WithdrawalRecord = {
         withdrawalKey: purchase.key, sectorId, accountUid, paymentRef: purchase.paymentRef,
         paidCents: quote.paidCents, deductionCents: quote.deductionCents, refundCents: quote.refundCents, requestedAt: now,
@@ -142,7 +153,7 @@ export const createWithdrawalService = (deps: { store: HostingStore; payment: Pa
         store.transitionContribution(purchase.contribution.contributionId, ["captured"], { state: "refunded" }, now);
         store.removeMember(sectorId, accountUid);
       } else {
-        // The whole sector: closed, and its server deleted by the reconciler.
+        // The whole sector: closed, and its server deleted by the reconciler. One closed for inactivity already is.
         store.transitionSector(sectorId, WITHDRAWABLE_STATES, { state: "refunded" }, now);
       }
       deps.alert("withdrawal", { sectorId, withdrawal: withdrawal.withdrawalKey, refundCents: withdrawal.refundCents, share: purchase.contribution ? 1 : 0 });

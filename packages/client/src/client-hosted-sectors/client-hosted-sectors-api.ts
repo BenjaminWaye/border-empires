@@ -33,6 +33,8 @@ export type HostedSectorSummary = {
   funding?: HostedSectorFunding;
   /** True while this account can withdraw from what it paid for here. */
   canWithdraw?: boolean;
+  /** This account withdrew from the whole sector. */
+  withdrawn?: boolean;
 };
 
 export type HostedWithdrawalQuote = { purchaseKey: string; paidCents: number; daysOpen: number; deductionCents: number; refundCents: number; deadline: number };
@@ -85,7 +87,8 @@ const parseSector = (value: unknown): HostedSectorSummary | undefined => {
     delayed: record.delayed === true,
     ...(typeof record.checkoutUrl === "string" ? { checkoutUrl: record.checkoutUrl } : {}),
     ...(parseFunding(record.funding) ? { funding: parseFunding(record.funding) as HostedSectorFunding } : {}),
-    ...(record.canWithdraw === true ? { canWithdraw: true } : {})
+    ...(record.canWithdraw === true ? { canWithdraw: true } : {}),
+    ...(record.withdrawn === true ? { withdrawn: true } : {})
   };
 };
 

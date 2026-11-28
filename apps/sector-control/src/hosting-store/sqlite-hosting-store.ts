@@ -29,7 +29,8 @@ const ADDED_COLUMNS: ReadonlyArray<readonly [table: string, column: string, type
   ["hosted_sectors", "consent_text", "TEXT"],
   ["hosted_contributions", "consent_at", "INTEGER"],
   ["hosted_contributions", "consent_terms_version", "TEXT"],
-  ["hosted_contributions", "consent_text", "TEXT"]
+  ["hosted_contributions", "consent_text", "TEXT"],
+  ["hosted_sectors", "closed_at", "INTEGER"]
 ];
 
 const toConsent = (row: ConsentColumns): { consent?: ConsentRecord } =>
@@ -45,7 +46,7 @@ type SectorRow = {
   amount_cents: number; currency: string; payment_ref: string | null; checkout_url: string | null;
   server_ref: string | null; hostname: string | null; created_at: number; updated_at: number;
   funding_deadline: number | null; paid_at: number | null; opened_at: number | null; ended_at: number | null;
-  create_attempts: number; next_attempt_at: number | null; last_error: string | null;
+  create_attempts: number; next_attempt_at: number | null; last_error: string | null; closed_at: number | null;
 } & ConsentColumns;
 type ContributionRow = {
   contribution_id: string; sector_id: string; account_uid: string; amount_cents: number; state: string;
@@ -57,13 +58,13 @@ type InviteRow = { code: string; sector_id: string; created_by: string; created_
 const SECTOR_COLUMNS =
   "sector_id, host_uid, map_style, map_size, state, amount_cents, currency, payment_ref, checkout_url, server_ref, hostname, " +
   "created_at, updated_at, funding_deadline, paid_at, opened_at, ended_at, create_attempts, next_attempt_at, last_error, " +
-  "consent_at, consent_terms_version, consent_text";
+  "consent_at, consent_terms_version, consent_text, closed_at";
 const CONTRIBUTION_COLUMNS =
   "contribution_id, sector_id, account_uid, amount_cents, state, payment_ref, checkout_url, created_at, updated_at, consent_at, consent_terms_version, consent_text";
 
 const PATCH_COLUMNS: Record<keyof SectorPatch, string> = {
   fundingDeadline: "funding_deadline", state: "state", paymentRef: "payment_ref", checkoutUrl: "checkout_url", serverRef: "server_ref", hostname: "hostname",
-  paidAt: "paid_at", openedAt: "opened_at", endedAt: "ended_at",
+  paidAt: "paid_at", openedAt: "opened_at", endedAt: "ended_at", closedAt: "closed_at",
   createAttempts: "create_attempts", nextAttemptAt: "next_attempt_at", lastError: "last_error"
 };
 
@@ -89,6 +90,7 @@ const toSector = (row: SectorRow): SectorRecord => {
     ...(row.paid_at !== null ? { paidAt: row.paid_at } : {}),
     ...(row.opened_at !== null ? { openedAt: row.opened_at } : {}),
     ...(row.ended_at !== null ? { endedAt: row.ended_at } : {}),
+    ...(row.closed_at !== null ? { closedAt: row.closed_at } : {}),
     createAttempts: row.create_attempts,
     ...(row.next_attempt_at !== null ? { nextAttemptAt: row.next_attempt_at } : {}),
     ...(row.last_error !== null ? { lastError: row.last_error } : {}),
@@ -230,12 +232,12 @@ export class SqliteHostingStore implements HostingStore {
 
   insertSector(sector: SectorRecord): void {
     this.db
-      .prepare(`INSERT INTO hosted_sectors (${SECTOR_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .prepare(`INSERT INTO hosted_sectors (${SECTOR_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .run(
         sector.sectorId, sector.hostUid, sector.options.mapStyle, sector.options.mapSize, sector.state, sector.amountCents, sector.currency,
         sector.paymentRef ?? null, sector.checkoutUrl ?? null, sector.serverRef ?? null, sector.hostname ?? null,
         sector.createdAt, sector.updatedAt, sector.fundingDeadline ?? null, sector.paidAt ?? null, sector.openedAt ?? null, sector.endedAt ?? null,
-        sector.createAttempts, sector.nextAttemptAt ?? null, sector.lastError ?? null, ...consentValues(sector.consent)
+        sector.createAttempts, sector.nextAttemptAt ?? null, sector.lastError ?? null, ...consentValues(sector.consent), sector.closedAt ?? null
       );
   }
 

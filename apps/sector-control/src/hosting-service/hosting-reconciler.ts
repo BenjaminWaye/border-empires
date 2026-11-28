@@ -138,7 +138,7 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
   };
 
   /** Deletes the server of a sector that no longer needs one, after saving its results. Without `then`, the row keeps its state. */
-  const deleteServer = async (sector: SectorRecord, now: number, then?: { state: "deleted"; endedAt?: number }): Promise<boolean> => {
+  const deleteServer = async (sector: SectorRecord, now: number, then?: { state: "deleted"; closedAt?: number }): Promise<boolean> => {
     if (sector.serverRef && !(await saveResults(sector, now))) return false;
     try {
       if (sector.serverRef) await deps.servers.deleteServer(sector.serverRef);
@@ -200,7 +200,7 @@ export const createHostingReconciler = (deps: HostingReconcilerDeps) => {
       }
     }
     if (now - lastVisit < config.idleCloseMs) return;
-    if (await deleteServer(sector, now, { state: "deleted", endedAt: now })) {
+    if (await deleteServer(sector, now, { state: "deleted", closedAt: now })) {
       deps.alert("sector_closed_idle", { sectorId: sector.sectorId, idleDays: Math.floor((now - lastVisit) / 86_400_000), unwarned });
     }
   };

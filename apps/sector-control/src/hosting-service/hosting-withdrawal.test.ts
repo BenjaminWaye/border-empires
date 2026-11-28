@@ -16,6 +16,8 @@ describe("the withdrawal deduction", () => {
     expect(withdrawalQuote("k", 2000, paid, paid, paid + HOUR)).toMatchObject({ daysOpen: 1, deductionCents: 67, refundCents: 1933 });
     expect(withdrawalQuote("k", 2000, paid, paid, paid + DAY)).toMatchObject({ daysOpen: 1, deductionCents: 67 });
     expect(withdrawalQuote("k", 2000, paid, paid, paid + DAY + 1)).toMatchObject({ daysOpen: 2, deductionCents: 133, refundCents: 1867 });
+    // Closed before the contest ended: only the days up to the closure count.
+    expect(withdrawalQuote("k", 3000, paid, paid, paid + 12 * DAY, paid + 9 * DAY)).toMatchObject({ daysOpen: 9, deductionCents: 900, refundCents: 2100 });
     // Never more than was paid.
     expect(withdrawalQuote("k", 2000, paid, paid, paid + 40 * DAY)).toMatchObject({ deductionCents: 2000, refundCents: 0 });
   });
@@ -81,6 +83,29 @@ describe("withdrawing from a hosted sector", () => {
     h.store.transitionSector(ended, ["open"], { state: "ended", endedAt: h.clock.now }, h.clock.now);
     expect(await h.service.withdraw(account("other"), ended, ended)).toMatchObject({ ok: false, code: "WITHDRAWAL_NOT_AVAILABLE", message: expect.stringMatching(/Sector Contest ended/) });
     expect(h.payment.partialRefunds.size).toBe(0);
+  });
+
+  it("stays open after a sector closed for inactivity, charging only the days up to the closure, and shows it as withdrawn", async () => {
+    const h = await createHostingHarness();
+    const sectorId = await h.openSector();
+    const openedAt = h.store.getSector(sectorId)?.openedAt ?? 0;
+    // Nobody visits: the members are warned, and it closes after the idle period.
+    for (let day = 0; day < 10 && h.store.getSector(sectorId)?.state !== "deleted"; day += 1) {
+      h.clock.now += DAY;
+      await h.reconciler.runOnce();
+    }
+    const closed = h.store.getSector(sectorId);
+    expect(closed).toMatchObject({ state: "deleted" });
+    expect(closed?.endedAt).toBeUndefined();
+    const closedAt = closed?.closedAt ?? 0;
+    h.clock.now += 2 * DAY;
+    const quoted = h.service.quoteWithdrawal(account("host"), sectorId);
+    if (!quoted.ok) throw new Error(quoted.code);
+    const days = Math.ceil((closedAt - openedAt) / DAY);
+    expect(quoted.quote).toMatchObject({ daysOpen: days, deductionCents: Math.round((2000 * days) / 30) });
+    expect(await h.service.withdraw(account("host"), sectorId, sectorId)).toMatchObject({ ok: true, refundPending: false });
+    expect(h.store.getSector(sectorId)?.state).toBe("deleted");
+    expect(h.service.listSectors(account("host"))[0]).toMatchObject({ state: "deleted", withdrawn: true, canWithdraw: false });
   });
 
   it("closes at once when the refund fails, and the reconciler sends the recorded refund later", async () => {

@@ -57,6 +57,12 @@ describe("hosted sector row", () => {
     expect(hostedSectorRowHtml(sector({ state: "deleted" }), undefined)).toContain("Closed");
   });
 
+  it("says Withdrawn, not Refunded, for a sector this account withdrew from", () => {
+    expect(hostedSectorRowHtml(sector({ state: "refunded", withdrawn: true }), undefined)).toContain("Withdrawn ·");
+    expect(hostedSectorRowHtml(sector({ state: "deleted", withdrawn: true }), undefined)).toContain("Withdrawn ·");
+    expect(hostedSectorRowHtml(sector({ state: "refunded" }), undefined)).toContain("Refunded ·");
+  });
+
   it("marks the sector the player is in, and says so when a map size cannot be played in this build", () => {
     expect(hostedSectorRowHtml(sector(), "s-abc")).toContain("You are here");
     const small = hostedSectorRowHtml(sector({ options: { mapStyle: "islands", mapSize: "small" } }), undefined);
@@ -253,7 +259,7 @@ describe("my sectors panel", () => {
     await panel.openList();
     // Only where this account paid and may still withdraw.
     const buttons = document.querySelectorAll<HTMLButtonElement>("[data-hosted-sector-withdraw]");
-    expect(Array.from(buttons, (button) => button.textContent)).toEqual(["Withdraw from contract"]);
+    expect(Array.from(buttons, (button) => button.textContent)).toEqual(["Withdraw from contract here"]);
     buttons[0]?.click();
     await vi.waitFor(() => expect(document.querySelector("[data-hosted-sector-withdrawal]")?.textContent).toMatch(/You paid USD 20.*keep USD 2 for the 3 days.*get back USD 18/s));
     expect(h.api.withdraw).not.toHaveBeenCalled();

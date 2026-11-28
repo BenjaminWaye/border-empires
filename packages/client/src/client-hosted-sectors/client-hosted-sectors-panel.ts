@@ -58,7 +58,7 @@ export const hostedSectorTitle = (sector: Pick<HostedSectorSummary, "options">):
 
 export const hostedSectorRowHtml = (sector: HostedSectorSummary, activeSectorId: string | undefined): string => {
   const title = hostedSectorTitle(sector);
-  const status = sector.state === "creating" && sector.delayed ? "Taking longer than expected" : STATE_LABELS[sector.state];
+  const status = sector.withdrawn ? "Withdrawn" : sector.state === "creating" && sector.delayed ? "Taking longer than expected" : STATE_LABELS[sector.state];
   const enterable = sector.state === "open" || sector.state === "ended";
   const invitable = sector.role === "host" && (sector.state === "awaiting_payment" || sector.state === "funding" || sector.state === "creating" || sector.state === "open");
   const hostActions = `${sector.role === "host" && sector.state === "awaiting_payment" && sector.checkoutUrl ? `<button type="button" class="panel-btn" data-hosted-sector-pay="${escapeHtml(sector.sectorId)}">Pay</button>` : ""}${invitable ? `<button type="button" class="panel-btn" data-hosted-sector-invite="${escapeHtml(sector.sectorId)}">Invite</button>` : ""}${sector.canWithdraw ? withdrawButtonHtml(sector.sectorId) : ""}`;

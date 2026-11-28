@@ -103,7 +103,10 @@ acknowledgement (8c) and saving results (8d).
    lawyer should confirm the legal basis. **Built 2026-11-26 (8b-2):** the
    "Withdraw from contract" button and its confirmation step, with an
    acknowledgement on screen; the emailed acknowledgement (the durable medium)
-   comes with the emails (8c).
+   comes with the emails (8c). **2026-11-28:** the button reads "Withdraw from
+   contract here" and the confirmation "Confirm withdrawal"; withdrawal stays
+   possible after a sector is closed for inactivity (days counted up to the
+   closure), and a withdrawn sector shows as "Withdrawn".
 2. **Two separate tick-boxes on the order form**, not one. The form in
    `packages/client/src/client-hosted-sectors/client-hosted-sector-order.ts`
    today has one box that combines accepting the terms with the request to
