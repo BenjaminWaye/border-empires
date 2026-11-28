@@ -68,15 +68,26 @@ describe("honest join card (GDD §6)", () => {
     expect(overlayEl.querySelector("#join-season-wait")?.textContent).toBe("Wait for the next contest");
   });
 
-  it("closes the card when the player chooses to wait", () => {
-    const state = makeState({ seasonStartedAt: Date.now() - DAY_MS });
+  it("switches the card to the waiting view when the player chooses to wait", () => {
+    const state = makeState({ seasonStartedAt: Date.now() - DAY_MS }) as ReturnType<typeof makeState> & { joinSeasonWaiting?: boolean };
     const renderHud = vi.fn();
     const overlayEl = render(state, () => true, renderHud);
 
     (overlayEl.querySelector("#join-season-wait") as HTMLButtonElement).click();
 
-    expect(state.joinSeasonOverlayOpen).toBe(false);
+    expect(state.joinSeasonWaiting).toBe(true);
+    expect(state.joinSeasonOverlayOpen).toBe(true);
     expect(renderHud).toHaveBeenCalled();
+  });
+
+  it("closes the card on Not now when the sector has no next contest", () => {
+    const state = makeState({ seasonStartedAt: Date.now(), singleContest: true }) as ReturnType<typeof makeState> & { joinSeasonWaiting?: boolean };
+    const overlayEl = render(state);
+
+    (overlayEl.querySelector("#join-season-wait") as HTMLButtonElement).click();
+
+    expect(state.joinSeasonOverlayOpen).toBe(false);
+    expect(state.joinSeasonWaiting).toBeFalsy();
   });
 
   it("on a hosted sector (no next contest) offers Not now instead of waiting for a next contest", () => {

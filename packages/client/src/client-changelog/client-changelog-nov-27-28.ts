@@ -10,6 +10,7 @@ import { NUMBER_AGREEMENT_ENTRY } from "./client-changelog-number-agreement.js";
 import { FIRST15_GUIDE_CAMERA_ENTRY } from "./client-changelog-first15-guide-camera.js";
 import { FIRST15_HUD_EXPLAIN_ENTRY } from "./client-changelog-first15-hud-explain.js";
 import { POPUPS_WAIT_THEIR_TURN_ENTRY } from "./client-changelog-popups-wait-their-turn.js";
+import { INSURGENT_MARCH_ENTRY } from "./client-changelog-insurgent-march.js";
 
 export const NOV_27_28_CHANGELOG: ClientChangelogEntry[] = [
   { ...GUIDE_ISLAND_DOCK_ENTRY, createdAt: 1795779416929, },
@@ -21,5 +22,6 @@ export const NOV_27_28_CHANGELOG: ClientChangelogEntry[] = [
   { ...POPUPS_WAIT_THEIR_TURN_ENTRY, createdAt: 1795849065496, },
   { ...NUMBER_AGREEMENT_ENTRY, createdAt: 1795849095118, },
   { ...FIRST15_GUIDE_CAMERA_ENTRY, createdAt: 1795851462394, },
+  { ...INSURGENT_MARCH_ENTRY, createdAt: 1795861349536, },
   { ...FIRST15_HUD_EXPLAIN_ENTRY, createdAt: 1795865152971, },
 ];

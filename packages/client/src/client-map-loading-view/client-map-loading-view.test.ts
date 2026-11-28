@@ -358,13 +358,20 @@ describe("isMapLoadingOverlayActive", () => {
     expect(active).toBe(false);
   });
 
-  it("still shows the stall warning if needsSeasonJoin is true but the overlay itself isn't open", () => {
-    // Guards against over-widening the fix: needsSeasonJoin alone (without
-    // joinSeasonOverlayOpen) doesn't mean the join prompt is actually
-    // covering the screen right now -- matches the `visible` check in
-    // client-join-season-overlay.ts, which requires both.
+  it("stays hidden after the player closes the join card to wait for the next contest", () => {
+    // Regression: "Wait for the next contest" closes the card, the player
+    // has no land by choice, and "Map sync stalled" fired over the empty map.
     const active = isMapLoadingOverlayActive(
       { connection: "initialized", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 0, seasonPending: false, needsSeasonJoin: true, joinSeasonOverlayOpen: false },
+      60_000
+    );
+    expect(active).toBe(false);
+  });
+
+  it("still shows the disconnect overlay for an unjoined player whose card is closed", () => {
+    // Guards against over-widening: only an initialized session is exempt.
+    const active = isMapLoadingOverlayActive(
+      { connection: "disconnected", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 1_000, seasonPending: false, needsSeasonJoin: true, joinSeasonOverlayOpen: false },
       60_000
     );
     expect(active).toBe(true);
