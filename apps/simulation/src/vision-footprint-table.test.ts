@@ -245,7 +245,7 @@ describe("VisionFootprintTable", () => {
 
   it("stays bounded however many distinct (tile, radius) footprints a season touches", () => {
     // Regression: the memo used to keep every (tile, radius) ever queried
-    // for the whole season (21 MB and still growing 25 game hours in, see
+    // for the whole season (21 MB and still growing 24 game hours in, see
     // docs/load-results/sim-heap-growth-2026-11-28.md). Forest everywhere,
     // so every query is occluded and stores a real footprint.
     const forests = new Set<string>();

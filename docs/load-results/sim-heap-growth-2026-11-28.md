@@ -28,8 +28,17 @@ looked at what holds it.
 - **The largest growing holder, made about half the size** (legitimate
   growth): fog-of-war "why is this tile visible" tags, a Map per covered tile
   per House, 44 MB at 46k owned tiles. Now 23 MB on the same world.
-- **On the same world, same game age:** reachable heap TBD.
-- **Projection:** TBD.
+- **On the same world, from the same restart:** growth halved, 3.7 → 1.8 MB
+  per game hour over the same ten game hours (both runs took 1.5k tiles),
+  and the heap was 42 MB smaller (417 → 375 MB) at 48k owned tiles.
+- **Projection:** applied to the soak, heap after GC on day 3 would have been
+  about 400 MB instead of 470, growing about 1.2 MB an hour instead of 1.5.
+  If growth stops when the land is full, as the measurements say it should,
+  heap after GC levels off near 455 MB with peaks near 600–650 MB: no limit
+  is reached in 30 days. If it does not stop and the day-3 rate simply
+  continues, peaks reach 900 MB around day 13 (day 10 before). A full map has
+  never been observed, so which of the two holds is not proven. Options for
+  the owner are in §5; none is chosen here.
 - Measured on a 4-core cloud container on a clock running 6× faster than
   real time, not on Hetzner. What that does and does not represent is in
   [How it was measured](#how-it-was-measured).
@@ -152,11 +161,91 @@ random adds and removes).
 
 ## 4. Before and after, same world
 
-TBD
+Old and New runs, both started from the same copy of run A's world at game
+hour 37, snapshotted at the same game age after the restart. Retained size in
+MB.
+
+| | Old, +5.9 h | Old, +16 h | New, +5.9 h | New, +16 h |
+|---|---|---|---|---|
+| Owned tiles | 46,444 | 47,963 | 46,377 | 47,903 |
+| **Simulation heap, reachable** | **379.9** | **417.4** | **356.6** | **374.9** |
+| Fog-of-war coverage cache, all of it | 54.4 | 64.0 | 33.7 | 38.2 |
+| of which reason tags | 44.3 | 51.4 | 23.2 | 26.0 |
+| Vision footprint memo | 3.4 | 12.8 | 1.1 | 1.4 |
+| AI decision diagnostics | 4.1 | 11.0 | 3.3 | 10.4 |
+| Command replay cache | 5.2 | 8.1 | 5.4 | 8.2 |
+| Login snapshot cache | 3.9 | 5.9 | 6.1 | 3.7 |
+
+| | Old | New |
+|---|---|---|
+| Growth, +5.9 → +16 game hours (10.1 h) | +37.4 MB, 3.7 MB/h | +18.3 MB, 1.8 MB/h |
+| Of which the two changed holders | +16.5 MB | +3.1 MB |
+| AI decision round, 95th percentile, at +16 h | 516 ms | 408 ms |
+| Simulation loop delay, 95th percentile, at +16 h | 272 ms | 356 ms |
+
+- The rates here are higher than run A's because every cache restarts empty
+  after a restart and refills (AI history, replay cache, footprint memo). Both
+  runs pay that equally; the difference between them is the change.
+- The old memo grew 3.4 → 12.8 MB in ten game hours on 1.5k new tiles: it
+  refills with every tile whose vision is recomputed, at every radius. The
+  new one stayed under 1.5 MB, rolling its generations over (logged).
+- Reason tags still grow with what each House can see (23 → 26 MB here), at
+  about half the old cost per tile.
+- Timings are on a shared 4-core container on a 6× clock and differ in both
+  directions; they say nothing either way about the cost of recomputing
+  evicted footprints (see Not measured).
 
 ## 5. Projection to 30 days
 
-TBD
+From the soak (real time, full AI pace), adjusted by what the fixes removed
+here:
+
+| | Before | After (estimate) |
+|---|---|---|
+| Heap after GC per newly owned tile | 5.0 KB | about 4.0 KB (reason tags −0.5 KB, memo −0.5 KB) |
+| Heap after GC, soak day 3 (73.9k tiles) | 470 MB | about 400 MB (reason tags −39 MB scaled to 73.9k tiles, memo −30 to −40 MB) |
+| Growth on day 3, at about 300 tiles an hour | 1.5 MB/h | about 1.2 MB/h |
+| Land left to take | 13.4k of 87.3k land tiles | same |
+| Heap after GC with all land owned | about 540 MB, plus memo growth | about 455 MB |
+| Peaks (150–200 MB above heap after GC in the soak) | about 700–740 MB | about 600–650 MB |
+
+Two readings of the same data:
+
+- **Growth stops when the land is full** (what the measurements support: the
+  soak's whole day-3 rate is accounted for by land taken, and nothing found
+  grows with time without a cap). Then the heap levels off: after these
+  changes about 455 MB after GC, peaks about 600–650 MB, about 250 MB under
+  the limit. At 300 tiles an hour the land would be full around day 5; in
+  practice the rate falls as land runs out.
+- **Growth goes on at the day-3 rate** (a straight line, as the soak report
+  drew it). After these changes heap after GC reaches 700 MB, where peaks
+  reach 900 MB, around day 13 (day 10 before), and 900 MB itself around
+  day 20 (day 16 before). That still falls inside a 30-day contest.
+
+A full map has never been run, so the first reading is not proven. Options,
+with their costs; none is chosen here:
+
+1. **Do nothing more until a run reaches a full map.** A soak like the
+   owner's to land saturation, about 5–7 days at the soak's pace, or a
+   resumed world on a faster clock with this branch. Cost: time on the
+   owner's machine; no money. Risk: none until launch.
+2. **Raise the heap limit as insurance.** `--max-old-space-size` in
+   `deploy/env/*.env`. The soak's whole process was 1.25–1.32 GB at day 3 on
+   the 4 GB server; 1,400 MB of heap would add at most 500 MB to that, about
+   1.8 GB in all, still under half the server. Cost: no money; one line. Risk:
+   a real leak would take longer to show and the process would hold more
+   memory before it did; the checkpoint watermarks (1,500 MB process, 680 MB
+   heap) would need revisiting with it, as 680 MB of heap would then defer
+   checkpoints long before the limit.
+3. **A shorter contest.** Under the straight-line reading, about 12 days stays
+   under 900 MB peaks. Changes the product (`docs/gdd.md` §6).
+4. **Cut more legitimate per-tile state.** In order of size at 48k tiles:
+   fog reason tags (26 MB, only read by the full-visibility audit export —
+   could be built on demand), tile-delta last-sent records (20 MB, up to about
+   30 MB at full exploration), AI planner tile view (13 MB), AI decision
+   history (levels off near 18 MB; debug only, could keep fewer entries or
+   drop `frontierOriginExplanations`, a third of it). Cost: engineering time;
+   each needs its own check that nothing reads what is dropped.
 
 ## Not measured
 

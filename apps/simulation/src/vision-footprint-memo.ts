@@ -7,7 +7,7 @@
  * radius a tile was ever seen at (radius grows with technology, observatories
  * and captures) added another. The 2026-11-28 heap snapshots
  * (docs/load-results/sim-heap-growth-2026-11-28.md) showed it growing from
- * 3 MB to 21 MB over 25 game hours with no sign of levelling off.
+ * 3 MB to 21 MB over 24 game hours with no sign of levelling off.
  *
  * Two generations, each at most `generationSize` entries. New entries go into
  * the young generation; a hit in the old one is promoted. When the young

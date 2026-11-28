@@ -279,6 +279,20 @@ baseline.
     every four hours. Next (owner, 2026-11-24): a run of days on the owner's
     own machine with humans playing in turns. Until then the hosting price
     is not settled.
+  - Known 2026-11-28
+    ([`load-results/sim-heap-growth-2026-11-28.md`](load-results/sim-heap-growth-2026-11-28.md)),
+    from heap snapshots of an aged world after the owner's three-day run
+    (heap after GC 400 → 470 MB, still about 1.2–1.5 MB an hour on day 3):
+    that growth follows owned land, about 5 KB per newly owned tile, which
+    accounts for the whole day-3 rate; nothing found grows with time alone
+    without a cap. One memo that grew without a bound was fixed and the
+    largest per-tile holder halved: on the same world the heap grows half as
+    fast and is 42 MB smaller. If growth stops when the land is full, heap
+    peaks level off near 600–650 MB of the 900 MB limit; if the day-3 rate
+    went on regardless, peaks would reach 900 MB around day 13 (day 10
+    before). A full map has not been run, so which holds is still open. The
+    options (a full-map run, a higher heap limit, a shorter contest, cutting
+    more per-tile state) are in that record for the owner; none is chosen.
   - Decided 2026-11-23, revised 2026-11-25 (owner): raise the checkpoint
     process-memory watermark from 700 MB to 1,500 MB, and the simulation-heap
     watermark from 480 MB to 680 MB, so that checkpoints stop being put off at
