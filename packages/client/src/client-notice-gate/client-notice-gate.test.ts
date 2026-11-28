@@ -94,7 +94,7 @@ describe("full-screen cards wait for the notice gate", () => {
     expect(document.getElementById("town-capture-overlay")).not.toBeNull();
   });
 
-  it("keeps a self-managed card (the survey popup) from claiming the slot while held", () => {
+  it("keeps an unprompted self-managed card from claiming the slot while held", () => {
     setFullscreenCardHold(() => true);
     expect(tryClaimFullscreenCard("occupation-survey", document.createElement("div"))).toBeUndefined();
   });
@@ -108,6 +108,23 @@ describe("full-screen cards wait for the notice gate", () => {
     expect(tryClaimFullscreenCard("occupation-survey", card)).toBeUndefined();
     document.body.appendChild(card);
     expect(tryClaimFullscreenCard("occupation-survey", card, { requested: true })).toBeDefined();
+    card.remove();
+  });
+
+  // A quick second tap on a survey pin landed on the card it had just opened and dismissed the clue unread.
+  it("drops a real tap on a self-managed card that has only just appeared", () => {
+    const card = document.createElement("div");
+    const button = card.appendChild(document.createElement("button"));
+    const pressed = vi.fn();
+    button.addEventListener("click", pressed);
+    document.body.appendChild(card);
+    expect(tryClaimFullscreenCard("occupation-survey", card, { requested: true })).toBeDefined();
+    const tap = new MouseEvent("click", { bubbles: true });
+    Object.defineProperty(tap, "isTrusted", { value: true });
+    button.dispatchEvent(tap);
+    expect(pressed).not.toHaveBeenCalled();
+    button.click(); // scripted: not dropped
+    expect(pressed).toHaveBeenCalledTimes(1);
     card.remove();
   });
 

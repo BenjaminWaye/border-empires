@@ -8,9 +8,9 @@
 // - enqueueFullscreenCard: a card that mounts once (town capture, waystation).
 //   Its `show` mounts it, returns the mounted element (or undefined when there
 //   was nothing to show) and calls `close` when the player dismisses it.
-// - tryClaimFullscreenCard: a card driven by its own controller that re-checks
-//   every frame (the occupation survey popup). It takes the slot only when it
-//   is free and gives it back through the returned release.
+// - tryClaimFullscreenCard: a card driven by its own controller (the
+//   occupation survey popup, opened from its map pin). It takes the slot only
+//   when it is free and gives it back through the returned release.
 
 export type FullscreenCardKey = "town-capture" | "waystation-activation" | "occupation-survey" | "unlock-celebration";
 
@@ -125,7 +125,9 @@ export const enqueueFullscreenCard = (card: FullscreenCard): void => {
  * to the page right after a successful claim. `requested` marks a card the
  * player just asked for (a map pin tap): the notice hold is for unprompted
  * cards, and the tap that asked for this one would otherwise hold it back
- * (a survey pin did nothing when tapped, 2026-11-28).
+ * (a survey pin did nothing when tapped, 2026-11-28). A requested card may
+ * open over a side panel: the player asked for it. Either way the card gets
+ * the arrival guard, so a quick second tap on the pin can't press its buttons.
  */
 export const tryClaimFullscreenCard = (
   key: FullscreenCardKey,
@@ -136,6 +138,7 @@ export const tryClaimFullscreenCard = (
   if (active || queue.length > 0 || (!options.requested && held())) return undefined;
   const token = {};
   active = { key, token, mounted };
+  guardArrivalTaps(mounted);
   return () => release(token);
 };
 
