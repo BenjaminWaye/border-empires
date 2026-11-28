@@ -13,7 +13,7 @@ const OUTLINE_ID = "tutorial-guide-anchor-outline";
 const OUTLINE_PADDING_PX = 4;
 
 export const GUIDE_ANCHOR_SELECTORS: Record<GuideAnchorId, string> = {
-  manufactory: '[data-hud-v2-action="build_manufactory"], [data-v2-build-pick="build_manufactory"], [data-action="build_manufactory"], [data-v2-build-category="town_support"]',
+  manufactory: '[data-hud-v2-action="build_manufactory"], [data-v2-build-pick="build_manufactory"], [data-action="build_manufactory"], [data-v2-build-recommended="build_manufactory"], [data-v2-build-category="town_support"]',
   manpower: '[data-hud-v2-open="manpower"]',
   manifest: '[data-hud-v2-open="manifest"]',
   afc: '[data-hud-v2-open="afc"]',
